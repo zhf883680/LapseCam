@@ -52,17 +52,34 @@ func main() {
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
+	// 启动 banner：同步打印，确保启动即有明确反馈
+	log.Println("================================")
+	log.Println("  LapseCam 延时摄影服务")
+	log.Println("================================")
+	log.Printf("  HTTP API   : http://0.0.0.0%s", cfg.Server.Addr)
+	log.Printf("  数据目录   : %s", cfg.Storage.BaseDir)
+	log.Printf("  数据库     : %s", cfg.Database.Path)
+	log.Printf("  ffmpeg     : %s", cfg.FFmpeg.Binary)
+	log.Printf("  ffprobe    : %s", cfg.FFmpeg.FFProbe)
+	log.Printf("  编码参数   : preset=%s crf=%d", cfg.FFmpeg.EncodePreset, cfg.FFmpeg.EncodeCRF)
+	log.Println("================================")
+	log.Println("服务已启动，等待任务...")
+
+	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("timelapse server listening on %s", cfg.Server.Addr)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+			errCh <- err
 		}
 	}()
 
-	<-ctx.Done()
-	log.Println("shutting down...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = srv.Shutdown(shutdownCtx)
-	log.Println("bye")
+	select {
+	case <-ctx.Done():
+		log.Println("shutting down...")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+		log.Println("bye")
+	case err := <-errCh:
+		log.Fatalf("server error: %v", err)
+	}
 }

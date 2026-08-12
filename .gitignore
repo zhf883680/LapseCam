@@ -10,3 +10,6 @@ data/
 
 # 系统
 .DS_Store
+
+# 交叉编译产物
+/dist/

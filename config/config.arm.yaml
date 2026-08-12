@@ -1,0 +1,29 @@
+# ============================================================
+# LapseCam 生产配置文件（ARM 设备部署版）
+# 用法：lapsecam -config /etc/lapsecam/config.yaml
+# ============================================================
+
+server:
+  addr: ":19090"                  # HTTP 端口（避开常用的 8080/18080，可自行修改）
+
+database:
+  path: "/mnt/data/lapsecam/database.db"   # SQLite 数据库文件
+
+storage:
+  baseDir: "/mnt/data/lapsecam"            # 数据根目录（视频/图片都在这里）
+  framesDir: "frames"                  # 抽帧图片 → /mnt/data/lapsecam/frames/task-{id}/
+  videosDir: "videos"                  # 成片视频 → /mnt/data/lapsecam/videos/task-{id}/
+
+ffmpeg:
+  binary: "/usr/bin/ffmpeg"            # apt 安装 ffmpeg 后的默认路径
+  ffprobe: "/usr/bin/ffprobe"
+  probeTimeout: 10s                    # 测试摄像头连接超时（ARM 设备稍放宽）
+  rtspTransport: "tcp"                 # RTSP 传输协议：tcp / udp
+  captureJPEGQuality: 2                # 抽帧 JPEG 质量 2-31，越小越清晰
+  captureBackoff: ["5s", "10s", "30s", "60s"]   # 断线重连退避序列
+  encodePreset: "ultrafast"            # ARM CPU 较弱，用 ultrafast 编码更快
+  encodeCRF: 20                        # x264 质量，越小越清晰
+
+scheduler:
+  tickSeconds: 1                       # 任务调度轮询间隔（秒）
+  cameraCheckSeconds: 60               # 摄像头在线状态探测间隔；0 = 关闭
