@@ -50,6 +50,29 @@ func (s *Service) QuickStart() (Task, bool, error) {
 	return t, false, nil
 }
 
+// QuickStop 停止当前正在录制的快捷任务并出片。
+// 没有正在录制的快捷任务时返回 found=false（幂等）。
+func (s *Service) QuickStop() (Task, bool, error) {
+	quickMu.Lock()
+	defer quickMu.Unlock()
+
+	t, err := s.findActiveQuickTask(s.cfg.Quick.Name)
+	if err != nil {
+		return Task{}, false, err
+	}
+	if t == nil {
+		return Task{}, false, nil
+	}
+	if err := s.Stop(t.ID); err != nil {
+		return Task{}, false, err
+	}
+	cur, err := s.Get(t.ID)
+	if err != nil {
+		return Task{}, false, err
+	}
+	return cur, true, nil
+}
+
 // findActiveQuickTask 查找 name 指定的 running/stopping 任务，没有则返回 nil。
 func (s *Service) findActiveQuickTask(name string) (*Task, error) {
 	row := s.db.QueryRow(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height,

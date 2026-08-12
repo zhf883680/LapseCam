@@ -73,3 +73,43 @@ func TestQuickStartIdempotent(t *testing.T) {
 		t.Fatalf("expected same task id %d, got %d", first.ID, second.ID)
 	}
 }
+
+func TestQuickStop(t *testing.T) {
+	s, cleanup := newTestService(t)
+	defer cleanup()
+
+	if _, err := s.cam.Create(camera.CameraInput{Name: "cam1", RtspURL: "rtsp://127.0.0.1:1/stream"}); err != nil {
+		t.Fatal(err)
+	}
+	task, _, err := s.QuickStart()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stopped, found, err := s.QuickStop()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !found {
+		t.Fatal("expected found=true")
+	}
+	if stopped.ID != task.ID {
+		t.Fatalf("expected task %d, got %d", task.ID, stopped.ID)
+	}
+	switch stopped.Status {
+	case StatusStopping, StatusFailed, StatusCompleted:
+	default:
+		t.Fatalf("unexpected status after stop: %s", stopped.Status)
+	}
+}
+
+func TestQuickStopNoRecord(t *testing.T) {
+	s, cleanup := newTestService(t)
+	defer cleanup()
+
+	if _, found, err := s.QuickStop(); err != nil {
+		t.Fatal(err)
+	} else if found {
+		t.Fatal("expected found=false")
+	}
+}
