@@ -130,10 +130,19 @@ func (s *Service) List() ([]Task, error) {
 		if err := scanTask(rows, &t); err != nil {
 			return nil, err
 		}
-		s.enrich(&t)
 		out = append(out, t)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// enrich 内部会访问数据库（摄像头名/帧数）。必须在 rows 关闭、释放唯一连接
+	// （SetMaxOpenConns(1)）之后进行，否则在 rows 未关闭时调用 QueryRow 会自死锁，
+	// 导致所有数据库请求永久挂起。
+	rows.Close()
+	for i := range out {
+		s.enrich(&out[i])
+	}
+	return out, nil
 }
 
 // Start 手动启动一个未运行的任务。
