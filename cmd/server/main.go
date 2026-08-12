@@ -58,7 +58,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	cam.StartChecker(ctx)
+	go cam.StartChecker(ctx)
 	tl.StartScheduler(ctx)
 
 	srv := &http.Server{
