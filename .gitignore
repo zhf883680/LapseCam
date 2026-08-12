@@ -1,0 +1,12 @@
+# 运行时数据
+data/
+
+# Go 本地缓存（开发用）
+.gocache/
+.gopath/
+
+# 日志
+*.log
+
+# 系统
+.DS_Store

@@ -1,0 +1,13 @@
+services:
+  timelapse:
+    build: .
+    image: timelapse:latest
+    container_name: timelapse
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data        # 视频/帧/数据库持久化
+      - ./config:/app/config    # 配置（可挂载后修改）
+    environment:
+      - TZ=Asia/Shanghai
