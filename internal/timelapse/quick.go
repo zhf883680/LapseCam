@@ -1,6 +1,7 @@
 package timelapse
 
 import (
+	"database/sql"
 	"errors"
 	"sync"
 	"time"
@@ -18,6 +19,12 @@ var ErrNoCamera = errors.New("没有可用摄像头")
 func (s *Service) QuickStart() (Task, bool, error) {
 	quickMu.Lock()
 	defer quickMu.Unlock()
+
+	if t, err := s.findActiveQuickTask(s.cfg.Quick.Name); err != nil {
+		return Task{}, false, err
+	} else if t != nil {
+		return *t, true, nil
+	}
 
 	cams, err := s.cam.List()
 	if err != nil {
@@ -41,4 +48,21 @@ func (s *Service) QuickStart() (Task, bool, error) {
 		return Task{}, false, err
 	}
 	return t, false, nil
+}
+
+// findActiveQuickTask 查找 name 指定的 running/stopping 任务，没有则返回 nil。
+func (s *Service) findActiveQuickTask(name string) (*Task, error) {
+	row := s.db.QueryRow(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height,
+		start_at, end_at, status, error_message, actual_started_at, created_at, updated_at
+		FROM timelapse_tasks WHERE name=? AND status IN (?, ?) ORDER BY id DESC LIMIT 1`,
+		name, StatusRunning, StatusStopping)
+	var t Task
+	err := scanTask(row, &t)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
 }
