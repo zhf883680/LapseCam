@@ -13,3 +13,6 @@ data/
 
 # 交叉编译产物
 /dist/
+
+# git worktree
+.worktrees/
