@@ -135,6 +135,33 @@ GET    /api/videos/{id}/file      # 播放/下载 MP4（支持 Range）
 DELETE /api/videos/{id}           # 删除记录及文件
 ```
 
+### 快捷录制（Home Assistant 自动化）
+
+两个固定接口，无需管理任务 ID：
+
+```
+POST /api/quick/start    # 开始录制（使用第一台摄像头）
+POST /api/quick/stop     # 停止录制并出片
+```
+
+重复调用安全：已在录制时 start 返回"已在录制"，没有录制时 stop 返回"当前没有录制"。
+录制参数（间隔/FPS/分辨率/任务名）由配置 `quick` 段控制，缺省为 5s/30FPS/1920×1080。
+
+HA `configuration.yaml` 定义两个 REST 命令：
+
+```yaml
+rest_command:
+  lapsecam_quick_start:
+    url: "http://<Armbian IP>:19090/api/quick/start"
+    method: POST
+  lapsecam_quick_stop:
+    url: "http://<Armbian IP>:19090/api/quick/stop"
+    method: POST
+```
+
+打印开始自动化里加 `- action: rest_command.lapsecam_quick_start`；
+打印结束/暂停自动化里加 `- action: rest_command.lapsecam_quick_stop`。
+
 ## 示例：10 小时 / 每 10 秒 / 30 FPS
 
 ```
