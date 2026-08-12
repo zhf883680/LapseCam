@@ -52,6 +52,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/videos/{id}/file", s.getVideoFile)
 	mux.HandleFunc("DELETE /api/videos/{id}", s.deleteVideo)
 
+	// 快捷录制（Home Assistant 等外部自动化调用）
+	mux.HandleFunc("POST /api/quick/start", s.quickStart)
+	mux.HandleFunc("POST /api/quick/stop", s.quickStop)
+
 	// 健康检查
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
