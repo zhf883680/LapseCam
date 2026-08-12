@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -39,6 +41,19 @@ func main() {
 	ff := ffmpeg.New(cfg)
 	cam := camera.New(db, cfg, ff)
 	tl := timelapse.New(db, cfg, ff, cam, st)
+
+	// 初始化日志：终端 + 日志文件双输出，方便 systemd/前台/远程排查
+	if err := st.EnsureDir(cfg.Storage.BaseDir); err != nil {
+		log.Printf("ensure data dir %s: %v", cfg.Storage.BaseDir, err)
+	}
+	logPath := filepath.Join(cfg.Storage.BaseDir, "lapsecam.log")
+	if lf, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644); err != nil {
+		log.Printf("open log file %s failed: %v", logPath, err)
+	} else {
+		defer lf.Close()
+		log.SetOutput(io.MultiWriter(os.Stdout, lf))
+		log.Printf("日志文件: %s", logPath)
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
