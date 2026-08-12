@@ -15,6 +15,16 @@ type Config struct {
 	Storage   StorageConfig   `yaml:"storage"`
 	FFmpeg    FFmpegConfig    `yaml:"ffmpeg"`
 	Scheduler SchedulerConfig `yaml:"scheduler"`
+	Quick     QuickConfig     `yaml:"quick"`
+}
+
+// QuickConfig 快捷录制配置（POST /api/quick/start 与 /api/quick/stop）。
+type QuickConfig struct {
+	Name            string `yaml:"name"`            // 快捷任务名称（用于识别）
+	IntervalSeconds int    `yaml:"intervalSeconds"` // 抽帧间隔（秒）
+	OutputFPS       int    `yaml:"outputFps"`       // 成片帧率
+	Width           int    `yaml:"width"`           // 成片宽
+	Height          int    `yaml:"height"`          // 成片高
 }
 
 type ServerConfig struct {
@@ -78,6 +88,13 @@ func Default() *Config {
 			EncodeCRF:          20,
 		},
 		Scheduler: SchedulerConfig{TickSeconds: 1, CameraCheckSeconds: 60},
+		Quick: QuickConfig{
+			Name:            "快捷录制",
+			IntervalSeconds: 5,
+			OutputFPS:       30,
+			Width:           1920,
+			Height:          1080,
+		},
 	}
 }
 
@@ -127,6 +144,21 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Scheduler.CameraCheckSeconds < 0 {
 		c.Scheduler.CameraCheckSeconds = d.Scheduler.CameraCheckSeconds
+	}
+	if c.Quick.Name == "" {
+		c.Quick.Name = d.Quick.Name
+	}
+	if c.Quick.IntervalSeconds <= 0 {
+		c.Quick.IntervalSeconds = d.Quick.IntervalSeconds
+	}
+	if c.Quick.OutputFPS <= 0 {
+		c.Quick.OutputFPS = d.Quick.OutputFPS
+	}
+	if c.Quick.Width <= 0 {
+		c.Quick.Width = d.Quick.Width
+	}
+	if c.Quick.Height <= 0 {
+		c.Quick.Height = d.Quick.Height
 	}
 }
 

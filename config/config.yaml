@@ -22,3 +22,10 @@ ffmpeg:
 scheduler:
   tickSeconds: 1           # 任务调度轮询间隔
   cameraCheckSeconds: 60   # 摄像头在线状态轮询间隔；0 表示关闭自动探测
+
+quick:
+  name: "快捷录制"
+  intervalSeconds: 5
+  outputFps: 30
+  width: 1920
+  height: 1080
