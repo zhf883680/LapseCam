@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"timelapse/internal/camera"
 	"timelapse/internal/storage"
 	"timelapse/internal/timelapse"
+	"timelapse/web"
 )
 
 // Server 组合各业务服务并注册 HTTP 路由。
@@ -53,6 +55,12 @@ func (s *Server) Handler() http.Handler {
 	// 健康检查
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	// 内置管理页面
+	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = io.WriteString(w, web.IndexHTML)
 	})
 
 	return s.logMiddleware(s.corsMiddleware(mux))

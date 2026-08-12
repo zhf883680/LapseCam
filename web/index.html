@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LapseCam 延时摄影管理台</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#1e293b; --panel2:#273449; --border:#334155;
+  --text:#e2e8f0; --muted:#94a3b8; --accent:#38bdf8; --accent2:#0ea5e9;
+  --ok:#4ade80; --warn:#fbbf24; --err:#f87171; --info:#60a5fa;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;font-size:14px}
+header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--panel);border-bottom:1px solid var(--border)}
+.brand{font-size:20px;font-weight:700;letter-spacing:.5px}
+.brand span{color:var(--muted);font-weight:400;font-size:13px;margin-left:8px}
+.health{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+.dot.err{background:var(--err);box-shadow:0 0 8px var(--err)}
+.tabs{display:flex;gap:4px;padding:10px 24px;background:var(--panel);border-bottom:1px solid var(--border)}
+.tab{padding:8px 20px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font-size:14px;cursor:pointer}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--panel2);color:var(--accent);border-color:var(--border)}
+main{padding:20px 24px;max-width:1200px;margin:0 auto}
+section{display:none}
+section.active{display:block}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.toolbar h2{font-size:16px;color:var(--accent)}
+.btn{padding:8px 16px;border:none;border-radius:8px;background:var(--accent2);color:#fff;font-size:13px;cursor:pointer;transition:filter .15s}
+.btn:hover{filter:brightness(1.15)}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border)}
+.btn.danger{background:#7f1d1d;color:#fca5a5}
+.btn.mini{padding:4px 10px;font-size:12px;border-radius:6px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:10px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+th{background:var(--panel2);color:var(--muted);font-weight:600;font-size:12px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(56,189,248,.05)}
+.muted{color:var(--muted)}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px}
+.badge.online{background:rgba(74,222,128,.15);color:var(--ok)}
+.badge.offline{background:rgba(148,163,184,.15);color:var(--muted)}
+.badge.pending{background:rgba(148,163,184,.15);color:var(--muted)}
+.badge.running{background:rgba(74,222,128,.15);color:var(--ok)}
+.badge.stopping{background:rgba(251,191,36,.15);color:var(--warn)}
+.badge.completed{background:rgba(96,165,250,.15);color:var(--info)}
+.badge.failed{background:rgba(248,113,113,.15);color:var(--err)}
+.badge.stopped{background:rgba(148,163,184,.15);color:var(--muted)}
+.badge.success{background:rgba(74,222,128,.15);color:var(--ok)}
+.actions{display:flex;gap:6px}
+.progress-wrap{width:110px;height:6px;background:var(--panel2);border-radius:999px;overflow:hidden}
+.progress-bar{height:100%;background:var(--accent);border-radius:999px;transition:width .5s}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;align-items:flex-start;justify-content:center;padding:60px 16px;overflow:auto}
+.modal.show{display:flex}
+.modal-card{background:var(--panel);border:1px solid var(--border);border-radius:14px;width:100%;max-width:520px;padding:22px}
+.modal-card h3{margin-bottom:16px;font-size:16px;color:var(--accent)}
+.form-row{margin-bottom:12px}
+.form-row label{display:block;margin-bottom:5px;color:var(--muted);font-size:12px}
+.form-row input,.form-row select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px}
+.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--accent)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-check{display:flex;align-items:center;gap:8px;margin-top:4px}
+.form-check input{width:auto}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.test-result{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.7}
+.test-result.ok{background:rgba(74,222,128,.1);color:var(--ok)}
+.test-result.err{background:rgba(248,113,113,.1);color:var(--err)}
+video{width:100%;border-radius:10px;background:#000}
+.empty{padding:40px;text-align:center;color:var(--muted);background:var(--panel);border-radius:10px}
+#toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{padding:10px 20px;border-radius:8px;background:var(--panel2);border:1px solid var(--border);color:var(--text);font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:slideIn .2s}
+.toast.ok{border-color:var(--ok);color:var(--ok)}
+.toast.err{border-color:var(--err);color:var(--err)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🎥 LapseCam <span>延时摄影管理台</span></div>
+  <div class="health"><span class="dot" id="healthDot"></span><span id="healthText">检测中...</span></div>
+</header>
+<nav class="tabs">
+  <button class="tab active" data-tab="cameras">📷 摄像头</button>
+  <button class="tab" data-tab="tasks">⏱️ 延时任务</button>
+  <button class="tab" data-tab="videos">🎬 视频</button>
+</nav>
+<main>
+  <!-- 摄像头 -->
+  <section id="tab-cameras" class="active">
+    <div class="toolbar"><h2>摄像头列表</h2><button class="btn" onclick="openCameraModal()">＋ 添加摄像头</button></div>
+    <div id="camerasBody"></div>
+  </section>
+  <!-- 任务 -->
+  <section id="tab-tasks">
+    <div class="toolbar"><h2>延时摄影任务</h2><button class="btn" onclick="openTaskModal()">＋ 新建任务</button></div>
+    <div id="tasksBody"></div>
+  </section>
+  <!-- 视频 -->
+  <section id="tab-videos">
+    <div class="toolbar"><h2>生成的视频</h2></div>
+    <div id="videosBody"></div>
+  </section>
+</main>
+
+<!-- 摄像头弹窗 -->
+<div class="modal" id="modal-camera">
+  <div class="modal-card">
+    <h3 id="cameraModalTitle">添加摄像头</h3>
+    <input type="hidden" id="cameraId">
+    <div class="form-row"><label>名称</label><input id="cName" placeholder="如：客厅摄像头"></div>
+    <div class="form-row"><label>RTSP 地址</label><input id="cRtsp" placeholder="rtsp://192.168.1.100:554/stream1"></div>
+    <div class="form-row"><label>用户名</label><input id="cUser" placeholder="可选"></div>
+    <div class="form-row"><label>密码</label><input id="cPass" type="password" placeholder="编辑时留空表示不修改"></div>
+    <div class="form-check"><input type="checkbox" id="cEnabled" checked><label style="margin:0">启用（参与在线检测与抽帧）</label></div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('modal-camera')">取消</button>
+      <button class="btn" onclick="saveCamera()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 任务弹窗 -->
+<div class="modal" id="modal-task">
+  <div class="modal-card">
+    <h3>新建延时任务</h3>
+    <div class="form-row"><label>任务名称</label><input id="tName" placeholder="如：植物生长"></div>
+    <div class="form-row"><label>摄像头</label><select id="tCamera"></select></div>
+    <div class="form-grid">
+      <div class="form-row"><label>抽帧间隔（秒）</label><input id="tInterval" type="number" min="1" value="10"></div>
+      <div class="form-row"><label>输出帧率 FPS</label><input id="tFps" type="number" min="1" max="120" value="30"></div>
+      <div class="form-row"><label>输出宽度</label><input id="tWidth" type="number" min="1" value="1920"></div>
+      <div class="form-row"><label>输出高度</label><input id="tHeight" type="number" min="1" value="1080"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>开始时间</label><input id="tStart" type="datetime-local"></div>
+      <div class="form-row"><label>结束时间（可选）</label><input id="tEnd" type="datetime-local"></div>
+    </div>
+    <div class="muted" style="font-size:12px">结束时间留空 = 手动停止时出片</div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('modal-task')">取消</button>
+      <button class="btn" onclick="saveTask()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- 视频播放弹窗 -->
+<div class="modal" id="modal-video">
+  <div class="modal-card" style="max-width:900px">
+    <h3 id="videoTitle">播放</h3>
+    <video id="videoPlayer" controls autoplay></video>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closeModal('modal-video')">关闭</button>
+      <a class="btn" id="videoDownload" href="#" download>⬇ 下载 MP4</a>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script>
+const API = '/api';
+let camerasCache = [];
+let tasksCache = [];
+
+// ---- 基础工具 ----
+async function api(path, method, body){
+  const opt = {method: method || 'GET', headers:{}};
+  if(body !== undefined){ opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  let res;
+  try{ res = await fetch(API + path, opt); }
+  catch(e){ throw new Error('无法连接服务器'); }
+  let data = null;
+  try{ data = await res.json(); }catch(e){}
+  if(!res.ok){
+    const msg = (data && data.message) ? data.message : ('HTTP ' + res.status);
+    throw new Error(msg);
+  }
+  return data ? data.data : null;
+}
+function toast(msg, type){
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type || '');
+  t.textContent = msg;
+  document.getElementById('toast').appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtTime(iso){
+  if(!iso) return '—';
+  const d = new Date(iso);
+  if(isNaN(d)) return iso;
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function fmtSize(n){
+  if(n == null) return '—';
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  if(n < 1024*1024*1024) return (n/1024/1024).toFixed(1) + ' MB';
+  return (n/1024/1024/1024).toFixed(2) + ' GB';
+}
+function fmtDur(s){
+  if(s == null) return '—';
+  const m = Math.floor(s/60), sec = Math.round(s%60);
+  return m > 0 ? `${m}分${sec}秒` : `${sec}秒`;
+}
+function badge(text, cls){ return `<span class="badge ${cls}">${esc(text)}</span>`; }
+function statusBadge(s){
+  const map = {pending:['等待中','pending'],running:['运行中','running'],stopping:['停止中','stopping'],completed:['已完成','completed'],failed:['失败','failed'],stopped:['已停止','stopped'],success:['成功','success']};
+  const [txt,cls] = map[s] || [s,'pending'];
+  return badge(txt, cls);
+}
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function openModal(id){ document.getElementById(id).classList.add('show'); }
+
+// ---- Tab 切换 ----
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  if(btn.dataset.tab === 'tasks') loadTasks();
+  if(btn.dataset.tab === 'videos') loadVideos();
+}));
+
+// ---- 健康检查 ----
+async function loadHealth(){
+  try{
+    const d = await api('/health');
+    document.getElementById('healthDot').className = 'dot ok';
+    document.getElementById('healthText').textContent = '服务正常';
+  }catch(e){
+    document.getElementById('healthDot').className = 'dot err';
+    document.getElementById('healthText').textContent = '服务异常';
+  }
+}
+
+// ================= 摄像头 =================
+async function loadCameras(){
+  try{
+    const list = await api('/cameras') || [];
+    camerasCache = list;
+    renderCameras(list);
+  }catch(e){ document.getElementById('camerasBody').innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`; }
+}
+function renderCameras(list){
+  if(!list.length){ document.getElementById('camerasBody').innerHTML = `<div class="empty">还没有摄像头，点击右上角"添加摄像头"</div>`; return; }
+  let html = `<table><thead><tr><th>ID</th><th>名称</th><th>RTSP 地址</th><th>用户名</th><th>状态</th><th>启用</th><th>操作</th></tr></thead><tbody>`;
+  for(const c of list){
+    const st = c.enabled ? (c.online ? badge('在线','online') : badge('离线','offline')) : badge('已禁用','pending');
+    html += `<tr>
+      <td>${c.id}</td>
+      <td>${esc(c.name)}</td>
+      <td class="muted" style="max-width:280px;overflow:hidden;text-overflow:ellipsis" title="${esc(c.rtspUrl)}">${esc(c.rtspUrl)}</td>
+      <td>${esc(c.username) || '—'}</td>
+      <td>${st}</td>
+      <td>${c.enabled ? '✅' : '—'}</td>
+      <td><div class="actions">
+        <button class="btn mini ghost" onclick="testCamera(${c.id})">测试</button>
+        <button class="btn mini ghost" onclick="openCameraModal(${c.id})">编辑</button>
+        <button class="btn mini danger" onclick="deleteCamera(${c.id})">删除</button>
+      </div></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('camerasBody').innerHTML = html;
+}
+function openCameraModal(id){
+  document.getElementById('cameraModalTitle').textContent = id ? '编辑摄像头' : '添加摄像头';
+  document.getElementById('cameraId').value = id || '';
+  const f = (el,v)=>document.getElementById(el).value = v == null ? '' : v;
+  f('cName',''); f('cRtsp',''); f('cUser',''); f('cPass','');
+  document.getElementById('cEnabled').checked = true;
+  if(id){
+    const c = camerasCache.find(x => x.id === id);
+    if(c){ f('cName',c.name); f('cRtsp',c.rtspUrl); f('cUser',c.username); document.getElementById('cEnabled').checked = c.enabled; }
+  }
+  openModal('modal-camera');
+}
+async function saveCamera(){
+  const id = document.getElementById('cameraId').value;
+  const body = {
+    name: document.getElementById('cName').value.trim(),
+    rtspUrl: document.getElementById('cRtsp').value.trim(),
+    username: document.getElementById('cUser').value.trim(),
+    password: document.getElementById('cPass').value,
+    enabled: document.getElementById('cEnabled').checked
+  };
+  try{
+    if(id){ await api('/cameras/' + id, 'PUT', body); toast('已保存'); }
+    else{ await api('/cameras', 'POST', body); toast('已添加'); }
+    closeModal('modal-camera'); loadCameras();
+  }catch(e){ toast(e.message, 'err'); }
+}
+async function testCamera(id){
+  toast('正在测试连接...');
+  try{
+    const r = await api('/cameras/' + id + '/test', 'POST');
+    const el = document.createElement('div');
+    const stream = r.stream ? `<br>分辨率：${r.stream.width}×${r.stream.height}｜编码：${esc(r.stream.codecName)}｜帧率：${esc(r.stream.avgFrameRate)}` : '';
+    el.className = 'test-result ' + (r.ok ? 'ok' : 'err');
+    el.textContent = (r.ok ? '✅ 连接成功：' : '❌ 连接失败：') + (r.message || '') ;
+    if(stream) el.innerHTML += stream;
+    const card = document.querySelector('#modal-camera .modal-card');
+    const old = card.querySelector('.test-result'); if(old) old.remove();
+    card.appendChild(el);
+    setTimeout(()=>el.remove(), 8000);
+    loadCameras();
+  }catch(e){ toast(e.message, 'err'); }
+}
+async function deleteCamera(id){
+  if(!confirm('确定删除摄像头？')) return;
+  try{ await api('/cameras/' + id, 'DELETE'); toast('已删除'); loadCameras(); }
+  catch(e){ toast(e.message, 'err'); }
+}
+
+// ================= 任务 =================
+async function loadTasks(){
+  try{
+    const list = await api('/timelapse') || [];
+    tasksCache = list;
+    renderTasks(list);
+  }catch(e){ document.getElementById('tasksBody').innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`; }
+}
+function renderTasks(list){
+  if(!list.length){ document.getElementById('tasksBody').innerHTML = `<div class="empty">还没有任务，点击右上角"新建任务"</div>`; return; }
+  let html = `<table><thead><tr><th>ID</th><th>名称</th><th>摄像头</th><th>间隔</th><th>FPS</th><th>分辨率</th><th>开始</th><th>结束</th><th>状态</th><th>进度</th><th>操作</th></tr></thead><tbody>`;
+  for(const t of list){
+    const pct = Math.round((t.progressPct || 0) * 100) / 100;
+    const prog = (t.status === 'running' || t.status === 'stopping')
+      ? `<div class="progress-wrap"><div class="progress-bar" style="width:${Math.min(pct,100)}%"></div></div><span class="muted" style="font-size:11px">${t.frameCount||0} 帧 ${pct}%</span>`
+      : `<span class="muted">${t.frameCount||0} 帧</span>`;
+    let ops = `<div class="actions">`;
+    if(t.status === 'pending' || t.status === 'stopped') ops += `<button class="btn mini ghost" onclick="startTask(${t.id})">开始</button>`;
+    if(t.status === 'running') ops += `<button class="btn mini ghost" onclick="stopTask(${t.id})">停止</button>`;
+    ops += `<button class="btn mini danger" onclick="deleteTask(${t.id})">删除</button></div>`;
+    html += `<tr>
+      <td>${t.id}</td>
+      <td>${esc(t.name)}</td>
+      <td>${esc(t.cameraName || t.cameraId)}</td>
+      <td>${t.intervalSeconds}s</td>
+      <td>${t.outputFps}</td>
+      <td>${t.width}×${t.height}</td>
+      <td class="muted">${fmtTime(t.startAt)}</td>
+      <td class="muted">${t.endAt ? fmtTime(t.endAt) : '手动'}</td>
+      <td>${statusBadge(t.status)}${t.errorMessage ? `<div class="muted" style="font-size:11px;max-width:150px" title="${esc(t.errorMessage)}">${esc(t.errorMessage)}</div>` : ''}</td>
+      <td>${prog}</td>
+      <td>${ops}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('tasksBody').innerHTML = html;
+}
+async function openTaskModal(){
+  const camSel = document.getElementById('tCamera');
+  camSel.innerHTML = '';
+  if(!camerasCache.length) await loadCameras();
+  const enabled = camerasCache.filter(c => c.enabled);
+  if(!enabled.length){ toast('请先添加并启用摄像头', 'err'); return; }
+  for(const c of enabled){ camSel.innerHTML += `<option value="${c.id}">${esc(c.name)}</option>`; }
+  // 默认开始时间：当前时间 + 1 分钟
+  const now = new Date(Date.now() + 60000);
+  const p = n => String(n).padStart(2,'0');
+  document.getElementById('tStart').value = `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}`;
+  document.getElementById('tEnd').value = '';
+  openModal('modal-task');
+}
+async function saveTask(){
+  const body = {
+    name: document.getElementById('tName').value.trim(),
+    cameraId: parseInt(document.getElementById('tCamera').value, 10),
+    intervalSeconds: parseInt(document.getElementById('tInterval').value, 10),
+    outputFps: parseInt(document.getElementById('tFps').value, 10),
+    width: parseInt(document.getElementById('tWidth').value, 10),
+    height: parseInt(document.getElementById('tHeight').value, 10),
+    startAt: document.getElementById('tStart').value,
+    endAt: document.getElementById('tEnd').value || null
+  };
+  try{
+    const t = await api('/timelapse', 'POST', body);
+    toast('任务已创建' + (t.status === 'running' ? '（开始时间已到，立即运行）' : ''));
+    closeModal('modal-task'); loadTasks();
+  }catch(e){ toast(e.message, 'err'); }
+}
+async function startTask(id){
+  try{ await api('/timelapse/' + id + '/start', 'POST'); toast('任务已开始'); loadTasks(); }
+  catch(e){ toast(e.message, 'err'); }
+}
+async function stopTask(id){
+  if(!confirm('停止后会把已拍帧合成视频，确定？')) return;
+  try{ await api('/timelapse/' + id + '/stop', 'POST'); toast('正在停止并合成视频...'); loadTasks(); }
+  catch(e){ toast(e.message, 'err'); }
+}
+async function deleteTask(id){
+  if(!confirm('删除任务及其所有帧/视频？')) return;
+  try{ await api('/timelapse/' + id, 'DELETE'); toast('已删除'); loadTasks(); loadVideos(); }
+  catch(e){ toast(e.message, 'err'); }
+}
+
+// ================= 视频 =================
+async function loadVideos(){
+  try{
+    const list = await api('/videos') || [];
+    renderVideos(list);
+  }catch(e){ document.getElementById('videosBody').innerHTML = `<div class="empty">加载失败：${esc(e.message)}</div>`; }
+}
+function renderVideos(list){
+  if(!list.length){ document.getElementById('videosBody').innerHTML = `<div class="empty">还没有生成视频</div>`; return; }
+  let html = `<table><thead><tr><th>ID</th><th>任务</th><th>拍摄时间</th><th>帧数</th><th>时长</th><th>大小</th><th>状态</th><th>操作</th></tr></thead><tbody>`;
+  for(const v of list){
+    const ops = v.status === 'success' && v.fileSize > 0
+      ? `<div class="actions"><button class="btn mini ghost" onclick="playVideo(${v.id},'${esc(v.taskName || 'video')}')">播放</button><a class="btn mini ghost" href="/api/videos/${v.id}/file" download>下载</a><button class="btn mini danger" onclick="deleteVideo(${v.id})">删除</button></div>`
+      : `<button class="btn mini danger" onclick="deleteVideo(${v.id})">删除</button>`;
+    html += `<tr>
+      <td>${v.id}</td>
+      <td>${esc(v.taskName || v.taskId)}</td>
+      <td class="muted">${fmtTime(v.startTime)}<br>${fmtTime(v.endTime)}</td>
+      <td>${v.frameCount}</td>
+      <td>${fmtDur(v.durationSeconds)}</td>
+      <td>${fmtSize(v.fileSize)}</td>
+      <td>${statusBadge(v.status)}${v.errorMessage ? `<div class="muted" style="font-size:11px" title="${esc(v.errorMessage)}">${esc(v.errorMessage)}</div>` : ''}</td>
+      <td>${ops}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('videosBody').innerHTML = html;
+}
+function playVideo(id, name){
+  document.getElementById('videoTitle').textContent = '▶ ' + name;
+  const src = `/api/videos/${id}/file`;
+  const player = document.getElementById('videoPlayer');
+  player.src = src;
+  document.getElementById('videoDownload').href = src;
+  openModal('modal-video');
+  player.play().catch(()=>{});
+}
+async function deleteVideo(id){
+  if(!confirm('删除视频文件？')) return;
+  try{ await api('/videos/' + id, 'DELETE'); toast('已删除'); loadVideos(); }
+  catch(e){ toast(e.message, 'err'); }
+}
+
+// ---- 定时刷新 ----
+loadHealth(); loadCameras(); loadTasks(); loadVideos();
+setInterval(loadHealth, 10000);
+setInterval(loadCameras, 5000);
+setInterval(loadTasks, 3000);
+setInterval(loadVideos, 5000);
+</script>
+</body>
+</html>
