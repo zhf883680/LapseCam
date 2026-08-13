@@ -100,7 +100,7 @@ video{width:100%;border-radius:10px;background:#000}
   </section>
   <!-- 视频 -->
   <section id="tab-videos">
-    <div class="toolbar"><h2>生成的视频</h2></div>
+    <div class="toolbar"><h2>生成的视频</h2><button class="btn ghost" onclick="runCleanup()">🧹 清理</button></div>
     <div id="videosBody"></div>
   </section>
 </main>
@@ -469,6 +469,15 @@ async function deleteVideo(id){
   if(!confirm('删除视频文件？')) return;
   try{ await api('/videos/' + id, 'DELETE'); toast('已删除'); loadVideos(); }
   catch(e){ toast(e.message, 'err'); }
+}
+async function runCleanup(){
+  if(!confirm('立即清理：删除已出片任务的中间帧、无主残留数据，并按保留策略清理旧视频？')) return;
+  try{
+    const st = await api('/cleanup', 'POST');
+    const mb = (st.freedBytes/1024/1024).toFixed(1);
+    toast(`清理完成：中间帧 ${st.cleanedFrames} 项、旧视频 ${st.deletedVideos} 条、孤儿 ${st.orphanDirs} 目录/${st.orphanFiles} 文件，释放 ${mb} MB`);
+    loadVideos(); loadTasks();
+  }catch(e){ toast('清理失败：' + e.message); }
 }
 
 // ---- 定时刷新 ----
