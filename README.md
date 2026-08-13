@@ -71,16 +71,16 @@ git push origin v1.2.3
 GitHub Actions 会自动：
 
 1. 交叉编译 Linux 静态二进制：`amd64` / `arm64` / `armv7`，作为附件上传到 Release；
-2. 构建并推送多架构 Docker 镜像到 **GitHub Container Registry (GHCR)**。
+2. 构建并推送多架构 Docker 镜像到 **Docker Hub**。
 
 Docker 镜像（多架构：`amd64` / `arm64` / `arm/v7`）：
 
 ```bash
-docker pull ghcr.io/zhf883680/lapsecam:latest
+docker pull zhf883680/lapsecam:latest
 docker run -d --name lapsecam \
   -p 8080:8080 \
   -v lapsecam-data:/app/data \
-  ghcr.io/zhf883680/lapsecam:latest
+  zhf883680/lapsecam:latest
 ```
 
 也可直接 `docker compose up -d` 本地构建（见 `docker-compose.yml`）。
