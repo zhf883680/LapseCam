@@ -57,7 +57,33 @@ docker compose up -d --build
 sudo bash deploy/install.sh
 ```
 
-自动检测 arm64/arm 架构、自动安装 ffmpeg、注册为 systemd 服务。装完访问 `http://<设备IP>:19090`，查看日志 `journalctl -u lapsecam -f`。生产配置在 `config/config.arm.yaml`（编码预设 `ultrafast`，适配 ARM 弱 CPU）。
+自动检测 arm64/arm 架构、自动安装 ffmpeg、注册为 systemd 服务。装完访问 `http://<设备IP>:19090`，查看日志 `journalctl -u lapsecam -f`。生产配置在 `config/config.arm.yaml`（编码预设 `veryfast`，适配 ARM 弱 CPU）。
+
+### 发布与 Docker 镜像（GitHub Actions）
+
+推一个 `v*` 标签即可触发自动发布（`.github/workflows/release.yml`）：
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+GitHub Actions 会自动：
+
+1. 交叉编译 Linux 静态二进制：`amd64` / `arm64` / `armv7`，作为附件上传到 Release；
+2. 构建并推送多架构 Docker 镜像到 **GitHub Container Registry (GHCR)**。
+
+Docker 镜像（多架构：`amd64` / `arm64` / `arm/v7`）：
+
+```bash
+docker pull ghcr.io/zhf883680/lapsecam:latest
+docker run -d --name lapsecam \
+  -p 8080:8080 \
+  -v lapsecam-data:/app/data \
+  ghcr.io/zhf883680/lapsecam:latest
+```
+
+也可直接 `docker compose up -d` 本地构建（见 `docker-compose.yml`）。
 
 ### 本地开发
 

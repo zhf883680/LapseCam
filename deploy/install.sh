@@ -46,7 +46,9 @@ echo "==> 目标架构：$ARCH"
 
 # ---- 2. 定位程序文件（平铺 / 仓库两种布局都支持） ----
 BIN=""
-for p in "$SRC/lapsecam-linux-$ARCH" "$SRC/lapsecam" "$SRC/dist/lapsecam-linux-$ARCH"; do
+# 32 位 ARM 的历史产物命名是 armv7，这里两种都兼容
+for p in "$SRC/lapsecam-linux-$ARCH" "$SRC/lapsecam-linux-armv7" "$SRC/lapsecam" \
+        "$SRC/dist/lapsecam-linux-$ARCH" "$SRC/dist/lapsecam-linux-armv7"; do
   if [ -f "$p" ]; then BIN="$p"; break; fi
 done
 [ -n "$BIN" ] || { echo "在 $SRC 下找不到二进制（lapsecam-linux-$ARCH / lapsecam / dist/...）" >&2; exit 1; }
