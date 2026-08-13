@@ -245,7 +245,9 @@ func (s *Service) Sync(ctx context.Context, cams []camera.Camera) error {
 	return nil
 }
 
-// sourceURL 组装 go2rtc 源地址：rtsp://user:pass@host/path#transport=tcp&media=video
+// sourceURL 组装 go2rtc 源地址：rtsp://user:pass@host/path#transport=tcp#media=video
+// 注意：go2rtc 的 fragment 多参数用 "#" 分隔（rtsp#p1#p2），不是 "&"；
+// 用 "&" 会被 go2rtc 解析成单个参数（transport=tcp&media=video），导致拨号失败。
 func (s *Service) sourceURL(c camera.Camera) string {
 	u := ffmpeg.BuildRTSPURL(c.RtspURL, c.Username, c.Password)
 	opts := make([]string, 0, 2)
@@ -256,7 +258,7 @@ func (s *Service) sourceURL(c camera.Camera) string {
 		opts = append(opts, "media="+m)
 	}
 	if len(opts) > 0 {
-		u += "#" + strings.Join(opts, "&")
+		u += "#" + strings.Join(opts, "#")
 	}
 	return u
 }
