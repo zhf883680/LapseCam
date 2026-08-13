@@ -1,7 +1,6 @@
 services:
   timelapse:
-    build: .
-    image: timelapse:latest
+    image: zhf883680/lapsecam:latest
     container_name: timelapse
     restart: unless-stopped
     ports:

@@ -41,14 +41,26 @@ Go + FFmpeg 构建的轻量延时摄影服务：添加 RTSP 摄像头 → 定时
 
 ## 🚀 快速开始
 
-### 方式一：Docker
+### 方式一：Docker（直接使用 Docker Hub 镜像）
 
 ```bash
-docker compose up -d --build
+docker run -d --name lapsecam \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  -v lapsecam-data:/app/data \
+  -e TZ=Asia/Shanghai \
+  zhf883680/lapsecam:latest
 ```
 
-- 数据（视频/帧/数据库）持久化在宿主机 `./data`，删容器不丢
-- 配置在 `./config`，改完重启生效
+也可以用项目自带的 `docker-compose.yml` 一键启动（已指向上面的镜像）：
+
+```bash
+docker compose up -d
+```
+
+- 镜像支持多架构：`amd64` / `arm64` / `arm/v7`，Docker 会自动按机器架构拉取
+- 视频/帧/数据库持久化在 named volume `lapsecam-data`；用 compose 时持久化在宿主机 `./data`
+- 默认使用镜像内置配置；如需改配置，可挂载含 `config.yaml` 的目录到 `/app/config`
 - Web 后台：`http://<IP>:8080`；健康检查：`GET /api/health`
 
 ### 方式二：ARM 设备（Armbian，树莓派/电视盒子）
@@ -77,17 +89,7 @@ GitHub Actions 会自动：
 1. 交叉编译 Linux 静态二进制：`amd64` / `arm64` / `armv7`，作为附件上传到 Release；
 2. 构建并推送多架构 Docker 镜像到 **Docker Hub**。
 
-Docker 镜像（多架构：`amd64` / `arm64` / `arm/v7`）：
-
-```bash
-docker pull zhf883680/lapsecam:latest
-docker run -d --name lapsecam \
-  -p 8080:8080 \
-  -v lapsecam-data:/app/data \
-  zhf883680/lapsecam:latest
-```
-
-也可直接 `docker compose up -d` 本地构建（见 `docker-compose.yml`）。
+Docker Hub 镜像：`zhf883680/lapsecam:latest`（多架构：`amd64` / `arm64` / `arm/v7`），直接用法见上方「方式一：Docker」。
 
 ### 本地开发
 
