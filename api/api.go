@@ -56,6 +56,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/videos/{id}/file", s.getVideoFile)
 	mux.HandleFunc("DELETE /api/videos/{id}", s.deleteVideo)
 
+	// 数据清理
+	mux.HandleFunc("POST /api/cleanup", s.cleanup)
+
 	// 快捷录制（Home Assistant 等外部自动化调用）
 	mux.HandleFunc("POST /api/quick/start", s.quickStart)
 	mux.HandleFunc("POST /api/quick/stop", s.quickStop)
