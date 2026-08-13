@@ -16,8 +16,9 @@ ffmpeg:
   rtspTransport: "tcp"    # RTSP 传输协议：tcp / udp
   captureJPEGQuality: 2   # JPEG 质量 2-31，越小越清晰
   captureBackoff: ["5s", "10s", "30s", "60s"]  # 断线重连退避序列
-  encodePreset: "medium"  # x264 preset：ultrafast/superfast/veryfast/faster/fast/medium/slow
-  encodeCRF: 20           # x264 CRF：越小质量越高
+  encodePreset: "slow"         # x264 preset：ultrafast/superfast/veryfast/faster/fast/medium/slow/veryslow
+  encodeCRF: 26                  # x264 CRF：越小质量越高；延时摄影建议 26-28
+  encodeMaxRateKbps: 4000         # 成片码率上限 kbps，防止画面突变时体积暴涨
 
 scheduler:
   tickSeconds: 1           # 任务调度轮询间隔
@@ -27,5 +28,5 @@ quick:
   name: "快捷录制"
   intervalSeconds: 5
   outputFps: 30
-  width: 1920
-  height: 1080
+  width: 1280
+  height: 720

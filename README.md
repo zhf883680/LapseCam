@@ -142,7 +142,7 @@ automation:
       - service: rest_command.lapsecam_quick_stop
 ```
 
-> 快捷录制参数（间隔/FPS/分辨率/任务名）由配置 `quick` 段控制，默认 5 秒/30FPS/1920×1080。完整接口与配置说明见 [API 与配置参考](docs/api.md)。
+> 快捷录制参数（间隔/FPS/分辨率/任务名）由配置 `quick` 段控制，默认 5 秒/30FPS/1280×720。完整接口与配置说明见 [API 与配置参考](docs/api.md)。
 
 ## 🖥️ Web 管理后台
 

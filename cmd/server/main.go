@@ -76,7 +76,7 @@ func main() {
 	log.Printf("  数据库     : %s", cfg.Database.Path)
 	log.Printf("  ffmpeg     : %s", cfg.FFmpeg.Binary)
 	log.Printf("  ffprobe    : %s", cfg.FFmpeg.FFProbe)
-	log.Printf("  编码参数   : preset=%s crf=%d", cfg.FFmpeg.EncodePreset, cfg.FFmpeg.EncodeCRF)
+	log.Printf("  编码参数   : preset=%s crf=%d maxrate=%dkbps", cfg.FFmpeg.EncodePreset, cfg.FFmpeg.EncodeCRF, cfg.FFmpeg.EncodeMaxRateKbps)
 	log.Println("================================")
 	log.Println("服务已启动，等待任务...")
 

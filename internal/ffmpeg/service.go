@@ -188,10 +188,16 @@ func (s *Service) Encode(ctx context.Context, inputPattern, output string, fps, 
 		"-c:v", "libx264",
 		"-preset", preset,
 		"-crf", strconv.Itoa(crf),
+	}
+	// 码率上限防止画面突变时体积暴涨；bufsize 取 2 倍上限
+	if maxRate := s.cfg.FFmpeg.EncodeMaxRateKbps; maxRate > 0 {
+		args = append(args, "-maxrate", fmt.Sprintf("%dk", maxRate), "-bufsize", fmt.Sprintf("%dk", 2*maxRate))
+	}
+	args = append(args,
 		"-pix_fmt", "yuv420p",
 		"-movflags", "+faststart",
 		output,
-	}
+	)
 
 	cmd := exec.CommandContext(ctx, s.cfg.FFmpeg.Binary, args...)
 	cmd.Stderr = stderr

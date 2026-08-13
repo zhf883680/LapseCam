@@ -43,8 +43,8 @@
   "cameraId": 1,
   "intervalSeconds": 10,
   "outputFps": 30,
-  "width": 1920,
-  "height": 1080,
+  "width": 1280,
+  "height": 720,
   "startAt": "2026-08-12T08:00:00+08:00",
   "endAt": "2026-08-12T18:00:00+08:00"
 }
@@ -95,10 +95,11 @@ curl -X POST http://192.168.1.20:19090/api/quick/stop
 | `ffmpeg.rtspTransport` | RTSP 传输协议 `tcp`/`udp` |
 | `ffmpeg.captureJPEGQuality` | 抽帧 JPEG 质量 2-31，越小越清晰 |
 | `ffmpeg.captureBackoff` | 断线重连退避序列 |
-| `ffmpeg.encodePreset/encodeCRF` | x264 预设与质量（CRF 越小越清晰） |
+| `ffmpeg.encodePreset/encodeCRF` | x264 预设与质量（CRF 越小越清晰，建议 26-28） |
+| `ffmpeg.encodeMaxRateKbps` | 成片码率上限 kbps，防止画面突变时体积暴涨（0 或缺省用默认值 4000） |
 | `scheduler.tickSeconds` | 任务调度轮询间隔 |
 | `scheduler.cameraCheckSeconds` | 摄像头在线状态轮询间隔，`0` 关闭 |
-| `quick.name/intervalSeconds/outputFps/width/height` | 快捷录制参数，默认 5s/30FPS/1920×1080 |
+| `quick.name/intervalSeconds/outputFps/width/height` | 快捷录制参数，默认 5s/30FPS/1280×720 |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：
 
@@ -121,8 +122,9 @@ ffmpeg:
   rtspTransport: "tcp"
   captureJPEGQuality: 2
   captureBackoff: ["5s", "10s", "30s", "60s"]
-  encodePreset: "medium"
-  encodeCRF: 20
+  encodePreset: "slow"
+  encodeCRF: 26
+  encodeMaxRateKbps: 4000
 
 scheduler:
   tickSeconds: 1
@@ -132,8 +134,8 @@ quick:
   name: "快捷录制"
   intervalSeconds: 5
   outputFps: 30
-  width: 1920
-  height: 1080
+  width: 1280
+  height: 720
 ```
 
 ## 项目结构

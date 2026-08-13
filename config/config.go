@@ -42,19 +42,20 @@ type StorageConfig struct {
 }
 
 type FFmpegConfig struct {
-	Binary             string        `yaml:"binary"` // ffmpeg 可执行文件
-	FFProbe            string        `yaml:"ffprobe"`
-	ProbeTimeout       time.Duration `yaml:"probeTimeout"` // 探测摄像头超时
-	RTSPTransport      string        `yaml:"rtspTransport"`
-	CaptureJPEGQuality int           `yaml:"captureJPEGQuality"`
+	Binary             string          `yaml:"binary"` // ffmpeg 可执行文件
+	FFProbe            string          `yaml:"ffprobe"`
+	ProbeTimeout       time.Duration   `yaml:"probeTimeout"` // 探测摄像头超时
+	RTSPTransport      string          `yaml:"rtspTransport"`
+	CaptureJPEGQuality int             `yaml:"captureJPEGQuality"`
 	CaptureBackoff     []time.Duration `yaml:"captureBackoff"` // 断线重连退避序列
-	EncodePreset       string        `yaml:"encodePreset"`
-	EncodeCRF          int           `yaml:"encodeCRF"`
+	EncodePreset       string          `yaml:"encodePreset"`
+	EncodeCRF          int             `yaml:"encodeCRF"`
+	EncodeMaxRateKbps  int             `yaml:"encodeMaxRateKbps"` // 成片码率上限 kbps（0 或缺省用默认值）
 }
 
 type SchedulerConfig struct {
-	TickSeconds           int `yaml:"tickSeconds"`           // 任务调度轮询间隔
-	CameraCheckSeconds    int `yaml:"cameraCheckSeconds"`    // 摄像头在线状态轮询间隔，0 表示关闭
+	TickSeconds        int `yaml:"tickSeconds"`        // 任务调度轮询间隔
+	CameraCheckSeconds int `yaml:"cameraCheckSeconds"` // 摄像头在线状态轮询间隔，0 表示关闭
 }
 
 // Load 读取 YAML 配置文件并填充默认值。
@@ -74,9 +75,9 @@ func Load(path string) (*Config, error) {
 // Default 返回带默认值的配置。
 func Default() *Config {
 	return &Config{
-		Server: ServerConfig{Addr: ":8080"},
+		Server:   ServerConfig{Addr: ":8080"},
 		Database: DatabaseConfig{Path: "data/database.db"},
-		Storage: StorageConfig{BaseDir: "data", FramesDir: "frames", VideosDir: "videos"},
+		Storage:  StorageConfig{BaseDir: "data", FramesDir: "frames", VideosDir: "videos"},
 		FFmpeg: FFmpegConfig{
 			Binary:             "ffmpeg",
 			FFProbe:            "ffprobe",
@@ -84,16 +85,17 @@ func Default() *Config {
 			RTSPTransport:      "tcp",
 			CaptureJPEGQuality: 2,
 			CaptureBackoff:     []time.Duration{5 * time.Second, 10 * time.Second, 30 * time.Second, 60 * time.Second},
-			EncodePreset:       "medium",
-			EncodeCRF:          20,
+			EncodePreset:       "slow",
+			EncodeCRF:          26,
+			EncodeMaxRateKbps:  4000,
 		},
 		Scheduler: SchedulerConfig{TickSeconds: 1, CameraCheckSeconds: 60},
 		Quick: QuickConfig{
 			Name:            "快捷录制",
 			IntervalSeconds: 5,
 			OutputFPS:       30,
-			Width:           1920,
-			Height:          1080,
+			Width:           1280,
+			Height:          720,
 		},
 	}
 }
@@ -138,6 +140,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.FFmpeg.EncodeCRF <= 0 {
 		c.FFmpeg.EncodeCRF = d.FFmpeg.EncodeCRF
+	}
+	if c.FFmpeg.EncodeMaxRateKbps <= 0 {
+		c.FFmpeg.EncodeMaxRateKbps = d.FFmpeg.EncodeMaxRateKbps
 	}
 	if c.Scheduler.TickSeconds <= 0 {
 		c.Scheduler.TickSeconds = d.Scheduler.TickSeconds
