@@ -79,6 +79,29 @@ fi
 ffmpeg -version >/dev/null 2>&1 || { echo "ffmpeg 安装失败，请手动安装后重试" >&2; exit 1; }
 echo "==> ffmpeg OK：$(ffmpeg -version 2>/dev/null | head -1)"
 
+# ---- 3.5 安装 go2rtc（Web 实时预览：RTSP → MSE/HLS） ----
+GO2RTC_VER="${GO2RTC_VER:-v1.9.14}"
+case "$ARCH" in
+  arm64) G2R_ARCH=arm64 ;;
+  arm)   G2R_ARCH=arm ;;
+  *)     G2R_ARCH="" ;;
+esac
+if [ -n "$G2R_ARCH" ]; then
+  if ! command -v go2rtc >/dev/null 2>&1; then
+    if ! command -v wget >/dev/null 2>&1; then
+      echo "==> 安装 wget ..."
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get install -y wget
+    fi
+    echo "==> 下载 go2rtc ${GO2RTC_VER}（$G2R_ARCH）..."
+    wget -qO /usr/local/bin/go2rtc "https://github.com/AlexxIT/go2rtc/releases/download/${GO2RTC_VER}/go2rtc_linux_${G2R_ARCH}"
+    chmod +x /usr/local/bin/go2rtc
+  fi
+  echo "==> go2rtc OK：$(go2rtc -version 2>&1 | head -1)"
+else
+  echo "==> 跳过 go2rtc（未知架构：$ARCH，可在 config 里 preview.enabled=false）"
+fi
+
 # ---- 4. 创建目录 ----
 # 数据目录与 config.arm.yaml 里的 storage.baseDir /mnt/data/lapsecam 保持一致
 install -d /opt/lapsecam /etc/lapsecam /mnt/data/lapsecam

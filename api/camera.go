@@ -1,7 +1,9 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"log"
 	"net/http"
 
 	"timelapse/internal/camera"
@@ -27,6 +29,7 @@ func (s *Server) createCamera(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	s.syncPreview(r.Context())
 	writeJSON(w, http.StatusCreated, c)
 }
 
@@ -50,6 +53,7 @@ func (s *Server) updateCamera(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	s.syncPreview(r.Context())
 	writeJSON(w, http.StatusOK, c)
 }
 
@@ -76,7 +80,23 @@ func (s *Server) deleteCamera(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.syncPreview(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": id})
+}
+
+// syncPreview 摄像头增删改后同步 go2rtc 预览流（失败只记日志，不影响主流程）。
+func (s *Server) syncPreview(ctx context.Context) {
+	if !s.prev.Enabled() {
+		return
+	}
+	cams, err := s.cam.List()
+	if err != nil {
+		log.Printf("[preview] 同步预览流失败: %v", err)
+		return
+	}
+	if err := s.prev.Sync(ctx, cams); err != nil {
+		log.Printf("[preview] 同步预览流失败: %v", err)
+	}
 }
 
 func (s *Server) testCamera(w http.ResponseWriter, r *http.Request) {

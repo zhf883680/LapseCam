@@ -6,11 +6,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strconv"
 	"time"
 
 	"timelapse/config"
 	"timelapse/internal/camera"
+	"timelapse/internal/preview"
 	"timelapse/internal/storage"
 	"timelapse/internal/timelapse"
 	"timelapse/web"
@@ -22,10 +25,11 @@ type Server struct {
 	cam     *camera.Service
 	tl      *timelapse.Service
 	storage *storage.Service
+	prev    *preview.Service
 }
 
-func New(cfg *config.Config, cam *camera.Service, tl *timelapse.Service, st *storage.Service) *Server {
-	return &Server{cfg: cfg, cam: cam, tl: tl, storage: st}
+func New(cfg *config.Config, cam *camera.Service, tl *timelapse.Service, st *storage.Service, prev *preview.Service) *Server {
+	return &Server{cfg: cfg, cam: cam, tl: tl, storage: st, prev: prev}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -56,6 +60,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/quick/start", s.quickStart)
 	mux.HandleFunc("POST /api/quick/stop", s.quickStop)
 
+	// 实时预览：把 go2rtc 的 /go2rtc/* 反代出去（含 MSE 用的 WebSocket），保持单端口
+	if s.prev.Enabled() {
+		base := s.prev.BasePath()
+		mux.Handle(base+"/", s.go2rtcProxy(base))
+	}
+	mux.HandleFunc("GET /api/preview", s.previewStatus)
+
 	// 健康检查
 	mux.HandleFunc("GET /api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -68,6 +79,23 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	return s.logMiddleware(s.corsMiddleware(mux))
+}
+
+// go2rtcProxy 把 /go2rtc/* 反向代理到 go2rtc 内部服务。
+// go2rtc 配置了 base_path=/go2rtc，路径无需改写；httputil.ReverseProxy 自带 WebSocket 透传。
+func (s *Server) go2rtcProxy(base string) http.Handler {
+	target := &url.URL{Scheme: "http", Host: s.cfg.Preview.Addr}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	proxy.ErrorLog = log.New(io.Discard, "", 0) // go2rtc 未启动时由 /api/preview 提示，不刷日志
+	return proxy
+}
+
+// previewStatus 返回实时预览状态，前端据此决定是否显示预览按钮。
+func (s *Server) previewStatus(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"enabled":  s.prev.Enabled(),
+		"basePath": s.prev.BasePath(),
+	})
 }
 
 // ---- 通用工具 ----

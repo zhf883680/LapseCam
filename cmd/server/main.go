@@ -17,6 +17,7 @@ import (
 	"timelapse/internal/camera"
 	"timelapse/internal/database"
 	"timelapse/internal/ffmpeg"
+	"timelapse/internal/preview"
 	"timelapse/internal/storage"
 	"timelapse/internal/timelapse"
 )
@@ -41,6 +42,7 @@ func main() {
 	ff := ffmpeg.New(cfg)
 	cam := camera.New(db, cfg, ff)
 	tl := timelapse.New(db, cfg, ff, cam, st)
+	pv := preview.New(cfg)
 
 	// 初始化日志：终端 + 日志文件双输出，方便 systemd/前台/远程排查
 	if err := st.EnsureDir(cfg.Storage.BaseDir); err != nil {
@@ -61,9 +63,24 @@ func main() {
 	go cam.StartChecker(ctx)
 	tl.StartScheduler(ctx)
 
+	// Web 实时预览：启动 go2rtc 并同步摄像头流（二进制缺失/启动失败只降级，不影响主服务）
+	if pv.Enabled() {
+		if err := pv.Start(ctx); err != nil {
+			log.Printf("[preview] 实时预览不可用: %v（安装 go2rtc 或在配置里 preview.enabled=false）", err)
+		} else {
+			cams, err := cam.List()
+			if err != nil {
+				log.Printf("[preview] 读取摄像头失败: %v", err)
+			} else if err := pv.Sync(ctx, cams); err != nil {
+				log.Printf("[preview] 初始同步失败: %v", err)
+			}
+		}
+	}
+	defer pv.Stop()
+
 	srv := &http.Server{
 		Addr:              cfg.Server.Addr,
-		Handler:           api.New(cfg, cam, tl, st).Handler(),
+		Handler:           api.New(cfg, cam, tl, st, pv).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

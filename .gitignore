@@ -16,3 +16,6 @@ data/
 
 # git worktree
 .worktrees/
+
+# 本地编译产物
+/server

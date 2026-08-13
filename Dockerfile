@@ -14,7 +14,21 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/app ./cmd/server
 FROM alpine:3.20
 
 # FFmpeg 负责 RTSP 拉流 / 抽帧 / H.264 编码
-RUN apk add --no-cache ffmpeg ca-certificates tzdata
+RUN apk add --no-cache ffmpeg ca-certificates tzdata wget
+
+# go2rtc 负责 Web 实时预览（RTSP → 浏览器可播的 MSE/HLS）
+# 版本与二进制命名见 https://github.com/AlexxIT/go2rtc/releases
+ARG GO2RTC_VERSION=v1.9.14
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+      amd64) G2R_ARCH=amd64 ;; \
+      arm64) G2R_ARCH=arm64 ;; \
+      arm)   G2R_ARCH=arm ;; \
+      *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+    esac && \
+    wget -qO /usr/local/bin/go2rtc "https://github.com/AlexxIT/go2rtc/releases/download/${GO2RTC_VERSION}/go2rtc_linux_${G2R_ARCH}" && \
+    chmod +x /usr/local/bin/go2rtc && \
+    go2rtc -version
 
 WORKDIR /app
 

@@ -84,6 +84,20 @@ curl -X POST http://192.168.1.20:19090/api/quick/stop
 | GET | `/api/videos/{id}/file` | 播放/下载 MP4（支持 Range） |
 | DELETE | `/api/videos/{id}` | 删除记录及文件 |
 
+## 实时预览（go2rtc）
+
+Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP 实时转成浏览器可播的 MSE 流（延迟约 1~2 秒），不占用抽帧/编码线程。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/preview` | 预览是否启用：`{"enabled":true,"basePath":"/go2rtc"}` |
+| GET | `/go2rtc/*` | go2rtc 反代（播放页、API、WebSocket 都在这个前缀下） |
+
+- 播放页 URL：`/go2rtc/stream.html?src=cam-{id}&mode=mse`（`src` 为摄像头对应的 go2rtc 流名）
+- go2rtc 只绑 `127.0.0.1`，不直接对外；LapseCam 反代 `/go2rtc/*` 后保持单端口访问
+- 摄像头增删改后自动同步 go2rtc 流；go2rtc 按需拉流——有客户端观看才连摄像头，全部断开后自动释放
+- go2rtc 二进制：Docker 镜像已内置；ARM 安装脚本自动下载；本地开发需自行安装（`brew install go2rtc` 或去 [GitHub Releases](https://github.com/AlexxIT/go2rtc/releases) 下载）
+
 ## 配置说明（config.yaml）
 
 | 字段 | 说明 |
@@ -97,6 +111,14 @@ curl -X POST http://192.168.1.20:19090/api/quick/stop
 | `ffmpeg.captureBackoff` | 断线重连退避序列 |
 | `ffmpeg.encodePreset/encodeCRF` | x264 预设与质量（CRF 越小越清晰，建议 26-28） |
 | `ffmpeg.encodeMaxRateKbps` | 成片码率上限 kbps，防止画面突变时体积暴涨（0 或缺省用默认值 4000） |
+| `ffmpeg.encodeThreads` | 编码线程数，`0` 自动（吃满所有核）；小盒子设 `2-3` 可明显降低 CPU 占用 |
+| `preview.enabled` | 是否启用 Web 实时预览（go2rtc），默认 `true` |
+| `preview.binary` | go2rtc 可执行文件路径 |
+| `preview.addr` | go2rtc 内部监听地址，默认 `127.0.0.1:1984`（只绑本机） |
+| `preview.basePath` | 反代前缀，默认 `/go2rtc` |
+| `preview.rtspTransport` | 预览拉流传输协议 `tcp`/`udp` |
+| `preview.media` | 只取视频轨 `video` |
+| `preview.startTimeout` | 启动等待 go2rtc 就绪超时 |
 | `scheduler.tickSeconds` | 任务调度轮询间隔 |
 | `scheduler.cameraCheckSeconds` | 摄像头在线状态轮询间隔，`0` 关闭 |
 | `quick.name/intervalSeconds/outputFps/width/height` | 快捷录制参数，默认 5s/30FPS/1280×720 |
@@ -122,9 +144,19 @@ ffmpeg:
   rtspTransport: "tcp"
   captureJPEGQuality: 2
   captureBackoff: ["5s", "10s", "30s", "60s"]
-  encodePreset: "slow"
+  encodePreset: "veryfast"     # CPU 吃紧用 veryfast/ultrafast；想压得更小用 slow/veryslow
   encodeCRF: 26
   encodeMaxRateKbps: 4000
+  encodeThreads: 0            # 0=自动；小盒子可设 2-3 限制 CPU
+
+preview:
+  enabled: true
+  binary: "go2rtc"
+  addr: "127.0.0.1:1984"
+  basePath: "/go2rtc"
+  rtspTransport: "tcp"
+  media: "video"
+  startTimeout: 10s
 
 scheduler:
   tickSeconds: 1
@@ -147,6 +179,7 @@ quick:
 │   ├── camera/                # 摄像头 CRUD / 测试连接 / 在线探测
 │   ├── timelapse/             # 任务 CRUD / 调度器 / worker / 视频记录
 │   ├── ffmpeg/                # ffmpeg 封装：抽帧、编码、探测
+│   ├── preview/               # go2rtc 子进程：实时预览流管理
 │   ├── storage/               # 数据目录与清理
 │   └── database/              # SQLite（modernc 纯 Go 驱动，无 CGO）
 ├── config/config.yaml         # 配置

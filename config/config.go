@@ -14,6 +14,7 @@ type Config struct {
 	Database  DatabaseConfig  `yaml:"database"`
 	Storage   StorageConfig   `yaml:"storage"`
 	FFmpeg    FFmpegConfig    `yaml:"ffmpeg"`
+	Preview   PreviewConfig   `yaml:"preview"`
 	Scheduler SchedulerConfig `yaml:"scheduler"`
 	Quick     QuickConfig     `yaml:"quick"`
 }
@@ -51,6 +52,20 @@ type FFmpegConfig struct {
 	EncodePreset       string          `yaml:"encodePreset"`
 	EncodeCRF          int             `yaml:"encodeCRF"`
 	EncodeMaxRateKbps  int             `yaml:"encodeMaxRateKbps"` // 成片码率上限 kbps（0 或缺省用默认值）
+	EncodeThreads      int             `yaml:"encodeThreads"`     // 编码线程数，0 表示自动（小盒子可设 2-3 限制 CPU）
+}
+
+// PreviewConfig Web 实时预览（go2rtc）。
+// go2rtc 把摄像头 RTSP 流转成浏览器可直接播放的 MSE/HLS，
+// 由本服务反向代理 /go2rtc/* 对外提供，保持单端口访问。
+type PreviewConfig struct {
+	Enabled       bool          `yaml:"enabled"`       // 是否启用预览
+	Binary        string        `yaml:"binary"`        // go2rtc 可执行文件路径
+	Addr          string        `yaml:"addr"`          // go2rtc 内部监听地址（默认只绑 127.0.0.1，不直接对外）
+	BasePath      string        `yaml:"basePath"`      // 反向代理前缀，对外 URL 为 {basePath}/stream.html?src=cam-{id}
+	RTSPTransport string        `yaml:"rtspTransport"` // 拉流传输协议：tcp / udp
+	Media         string        `yaml:"media"`         // 只取视频轨：video（默认）
+	StartTimeout  time.Duration `yaml:"startTimeout"`  // 启动等待 go2rtc 就绪的超时
 }
 
 type SchedulerConfig struct {
@@ -85,9 +100,19 @@ func Default() *Config {
 			RTSPTransport:      "tcp",
 			CaptureJPEGQuality: 2,
 			CaptureBackoff:     []time.Duration{5 * time.Second, 10 * time.Second, 30 * time.Second, 60 * time.Second},
-			EncodePreset:       "slow",
+			EncodePreset:       "veryfast",
 			EncodeCRF:          26,
 			EncodeMaxRateKbps:  4000,
+			EncodeThreads:      0,
+		},
+		Preview: PreviewConfig{
+			Enabled:       true,
+			Binary:        "go2rtc",
+			Addr:          "127.0.0.1:1984",
+			BasePath:      "/go2rtc",
+			RTSPTransport: "tcp",
+			Media:         "video",
+			StartTimeout:  10 * time.Second,
 		},
 		Scheduler: SchedulerConfig{TickSeconds: 1, CameraCheckSeconds: 60},
 		Quick: QuickConfig{
@@ -143,6 +168,27 @@ func (c *Config) applyDefaults() {
 	}
 	if c.FFmpeg.EncodeMaxRateKbps <= 0 {
 		c.FFmpeg.EncodeMaxRateKbps = d.FFmpeg.EncodeMaxRateKbps
+	}
+	if c.FFmpeg.EncodeThreads < 0 {
+		c.FFmpeg.EncodeThreads = d.FFmpeg.EncodeThreads
+	}
+	if c.Preview.Binary == "" {
+		c.Preview.Binary = d.Preview.Binary
+	}
+	if c.Preview.Addr == "" {
+		c.Preview.Addr = d.Preview.Addr
+	}
+	if c.Preview.BasePath == "" {
+		c.Preview.BasePath = d.Preview.BasePath
+	}
+	if c.Preview.RTSPTransport == "" {
+		c.Preview.RTSPTransport = d.Preview.RTSPTransport
+	}
+	if c.Preview.Media == "" {
+		c.Preview.Media = d.Preview.Media
+	}
+	if c.Preview.StartTimeout <= 0 {
+		c.Preview.StartTimeout = d.Preview.StartTimeout
 	}
 	if c.Scheduler.TickSeconds <= 0 {
 		c.Scheduler.TickSeconds = d.Scheduler.TickSeconds

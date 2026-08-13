@@ -158,11 +158,29 @@ video{width:100%;border-radius:10px;background:#000}
   </div>
 </div>
 
+<!-- 实时预览弹窗 -->
+<div class="modal" id="modal-preview">
+  <div class="modal-card" style="max-width:900px">
+    <h3 id="previewTitle">实时预览</h3>
+    <iframe id="previewFrame" style="width:100%;height:480px;border:0;border-radius:10px;background:#000" allow="autoplay" src="about:blank"></iframe>
+    <div class="muted" style="font-size:12px;margin-top:8px">由 go2rtc 提供实时转码（MSE，延迟约 1~2 秒），关闭弹窗后自动停止拉流。</div>
+    <div class="modal-actions">
+      <button class="btn ghost" onclick="closePreview()">关闭</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <script>
 const API = '/api';
 let camerasCache = [];
 let tasksCache = [];
+let previewCfg = {enabled:false, basePath:'/go2rtc'};
+
+async function loadPreviewCfg(){
+  try{ previewCfg = await api('/preview') || previewCfg; }
+  catch(e){ previewCfg.enabled = false; }
+}
 
 // ---- 基础工具 ----
 async function api(path, method, body){
@@ -259,6 +277,7 @@ function renderCameras(list){
       <td>${c.enabled ? '✅' : '—'}</td>
       <td><div class="actions">
         <button class="btn mini ghost" onclick="testCamera(${c.id})">测试</button>
+        ${previewCfg.enabled ? `<button class="btn mini ghost" onclick="openPreview(${c.id}, '${esc(c.name)}')">预览</button>` : ''}
         <button class="btn mini ghost" onclick="openCameraModal(${c.id})">编辑</button>
         <button class="btn mini danger" onclick="deleteCamera(${c.id})">删除</button>
       </div></td>
@@ -314,6 +333,16 @@ async function deleteCamera(id){
   if(!confirm('确定删除摄像头？')) return;
   try{ await api('/cameras/' + id, 'DELETE'); toast('已删除'); loadCameras(); }
   catch(e){ toast(e.message, 'err'); }
+}
+function openPreview(id, name){
+  document.getElementById('previewTitle').textContent = '实时预览 - ' + name;
+  const url = previewCfg.basePath + '/stream.html?src=cam-' + id + '&mode=mse';
+  document.getElementById('previewFrame').src = url;
+  openModal('modal-preview');
+}
+function closePreview(){
+  document.getElementById('previewFrame').src = 'about:blank'; // 断开会话，go2rtc 自动停流
+  closeModal('modal-preview');
 }
 
 // ================= 任务 =================
@@ -443,7 +472,7 @@ async function deleteVideo(id){
 }
 
 // ---- 定时刷新 ----
-loadHealth(); loadCameras(); loadTasks(); loadVideos();
+loadHealth(); loadPreviewCfg().then(loadCameras); loadTasks(); loadVideos();
 setInterval(loadHealth, 10000);
 setInterval(loadCameras, 5000);
 setInterval(loadTasks, 3000);

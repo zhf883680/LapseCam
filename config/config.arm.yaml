@@ -21,9 +21,19 @@ ffmpeg:
   rtspTransport: "tcp"                 # RTSP 传输协议：tcp / udp
   captureJPEGQuality: 2                # 抽帧 JPEG 质量 2-31，越小越清晰
   captureBackoff: ["5s", "10s", "30s", "60s"]   # 断线重连退避序列
-  encodePreset: "veryfast"             # ARM CPU 较弱，用 veryfast 平衡编码速度与体积（可改 slow 进一步压缩）
+  encodePreset: "veryfast"             # ARM CPU 较弱，用 veryfast 平衡编码速度与体积（想更快可改 ultrafast）
   encodeCRF: 27                        # x264 质量，越小越清晰；延时摄影建议 26-28
   encodeMaxRateKbps: 3000               # 成片码率上限 kbps，防止画面突变时体积暴涨
+  encodeThreads: 0                      # 编码线程数；0=自动。想明显降低 CPU 占用可设 2（编码变慢但不再吃满）
+
+preview:
+  enabled: true                       # Web 实时预览（go2rtc）
+  binary: "go2rtc"                    # 安装脚本会自动下载到 /usr/local/bin/go2rtc
+  addr: "127.0.0.1:1984"              # 只绑本机，经 LapseCam 反代 /go2rtc/ 对外
+  basePath: "/go2rtc"
+  rtspTransport: "tcp"
+  media: "video"
+  startTimeout: 15s                   # ARM 启动稍慢，放宽一点
 
 scheduler:
   tickSeconds: 1                       # 任务调度轮询间隔（秒）

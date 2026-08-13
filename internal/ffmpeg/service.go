@@ -189,6 +189,10 @@ func (s *Service) Encode(ctx context.Context, inputPattern, output string, fps, 
 		"-preset", preset,
 		"-crf", strconv.Itoa(crf),
 	}
+	// 限制编码线程数：0 表示自动（默认吃满所有核）；小盒子可设 2-3 降低 CPU 占用
+	if threads := s.cfg.FFmpeg.EncodeThreads; threads > 0 {
+		args = append(args, "-threads", strconv.Itoa(threads))
+	}
 	// 码率上限防止画面突变时体积暴涨；bufsize 取 2 倍上限
 	if maxRate := s.cfg.FFmpeg.EncodeMaxRateKbps; maxRate > 0 {
 		args = append(args, "-maxrate", fmt.Sprintf("%dk", maxRate), "-bufsize", fmt.Sprintf("%dk", 2*maxRate))

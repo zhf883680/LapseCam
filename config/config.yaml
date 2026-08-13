@@ -16,9 +16,20 @@ ffmpeg:
   rtspTransport: "tcp"    # RTSP 传输协议：tcp / udp
   captureJPEGQuality: 2   # JPEG 质量 2-31，越小越清晰
   captureBackoff: ["5s", "10s", "30s", "60s"]  # 断线重连退避序列
-  encodePreset: "slow"         # x264 preset：ultrafast/superfast/veryfast/faster/fast/medium/slow/veryslow
+  encodePreset: "veryfast"      # x264 preset：ultrafast/superfast/veryfast/faster/fast/medium/slow/veryslow
+                                  #   CPU 吃紧时用 veryfast/ultrafast，文件略大但快很多
   encodeCRF: 26                  # x264 CRF：越小质量越高；延时摄影建议 26-28
   encodeMaxRateKbps: 4000         # 成片码率上限 kbps，防止画面突变时体积暴涨
+  encodeThreads: 0               # 编码线程数；0=自动。小盒子 CPU 想降负载可设 2-3
+
+preview:
+  enabled: true               # Web 实时预览（go2rtc），浏览器直接看摄像头
+  binary: "go2rtc"            # go2rtc 可执行文件（Docker 已内置；ARM 安装脚本自动下载）
+  addr: "127.0.0.1:1984"      # go2rtc 内部监听地址，只绑本机，经 LapseCam 反代 /go2rtc/ 对外
+  basePath: "/go2rtc"         # 反代前缀
+  rtspTransport: "tcp"        # 预览拉流传输协议：tcp / udp
+  media: "video"              # 只取视频轨
+  startTimeout: 10s           # 启动等待 go2rtc 就绪超时
 
 scheduler:
   tickSeconds: 1           # 任务调度轮询间隔
