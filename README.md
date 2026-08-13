@@ -68,6 +68,10 @@ git tag v1.2.3
 git push origin v1.2.3
 ```
 
+> 首次发布前需先添加一个密钥，否则 Docker 推送会失败：
+> 仓库 **Settings → Secrets and variables → Actions → New repository secret**，新增
+> `DOCKERHUB_TOKEN`，值为 Docker Hub 的访问令牌（Account Settings → Security → Access Tokens，权限选 Read/Write/Delete）。
+
 GitHub Actions 会自动：
 
 1. 交叉编译 Linux 静态二进制：`amd64` / `arm64` / `armv7`，作为附件上传到 Release；
