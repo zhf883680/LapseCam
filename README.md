@@ -63,6 +63,18 @@ docker compose up -d
 - 默认使用镜像内置配置；如需改配置，可挂载含 `config.yaml` 的目录到 `/app/config`
 - Web 后台：`http://<IP>:8080`；健康检查：`GET /api/health`
 
+### 数据目录（`/app/data`）说明
+
+`/app/data` **不用提前创建、也完全可以是空的**，服务第一次启动时会自动初始化。运行后里面会自动生成：
+
+- `database.db`：SQLite 数据库，存摄像头、任务、视频记录
+- `frames/task-{id}/`：抽帧的中间图片（合成视频用）
+- `videos/task-{id}/`：最终合成的 MP4 成片
+- `logs/task-{id}.log`：每个任务的抽帧/编码日志
+- `lapsecam.log`：服务主日志
+
+挂载它只是为了**持久化**：容器删掉、重建后，任务记录和成片都还在。如果只是临时试用，也**可以不挂载**，容器删除后数据会一起丢失。
+
 ### 方式二：ARM 设备（Armbian，树莓派/电视盒子）
 
 ```bash
