@@ -29,6 +29,11 @@ func (s *Service) VideosDir(taskID int64) string {
 	return filepath.Join(s.cfg.Storage.BaseDir, s.cfg.Storage.VideosDir, fmt.Sprintf("task-%d", taskID))
 }
 
+// MarkersFile 返回某任务的层变化标记文件路径（与 frames/task-{id}/ 平级，避免被 CountFiles 计入帧数）。
+func (s *Service) MarkersFile(taskID int64) string {
+	return filepath.Join(s.cfg.Storage.BaseDir, s.cfg.Storage.FramesDir, fmt.Sprintf("task-%d.layers.json", taskID))
+}
+
 // EnsureDir 递归创建目录。
 func (s *Service) EnsureDir(dir string) error {
 	return os.MkdirAll(dir, 0o755)

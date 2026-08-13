@@ -41,7 +41,10 @@ scheduler:
 
 quick:
   name: "快捷录制"
-  intervalSeconds: 5
+  captureMode: "interval"     # 抽帧模式：interval=定时抽帧(默认) | layer=逐层截图 | timestamp=逐层选帧
+  intervalSeconds: 5          # 抽帧间隔（秒），interval/timestamp 模式使用
+  layerOffsetSeconds: 0       # timestamp 模式：选帧目标时刻 = 层变化时刻 + 偏移（秒，可负，需实测校准）
+  layerWindowSeconds: 5       # timestamp 模式：选帧窗口（秒），窗口内取最接近的一帧
   outputFps: 30
   width: 1280
   height: 720

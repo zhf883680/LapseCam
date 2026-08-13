@@ -21,6 +21,7 @@ func newTestService(t *testing.T) (*Service, func()) {
 		t.Fatal(err)
 	}
 	cfg := config.Default()
+	cfg.Storage.BaseDir = dir // 测试数据（帧/标记/日志）全部落到临时目录
 	st := storage.New(cfg)
 	ff := ffmpeg.New(cfg)
 	cam := camera.New(db, cfg, ff)

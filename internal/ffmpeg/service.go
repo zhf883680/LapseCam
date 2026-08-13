@@ -142,6 +142,37 @@ func (s *Service) StartCapture(ctx context.Context, input, outputPattern string,
 	return p, nil
 }
 
+// GrabFrame 抓取 RTSP 流的单帧 JPEG（供逐层截图模式使用，不阻塞等待整条流）。
+// outputPath 为完整文件路径，例如 data/frames/task-1/000042.jpg。
+func (s *Service) GrabFrame(ctx context.Context, input, outputPath string, opts CaptureOptions, stderr io.Writer) error {
+	if opts.JPEGQuality <= 0 {
+		opts.JPEGQuality = s.cfg.FFmpeg.CaptureJPEGQuality
+	}
+	if opts.RTSPTransport == "" {
+		opts.RTSPTransport = s.cfg.FFmpeg.RTSPTransport
+	}
+
+	args := []string{
+		"-hide_banner", "-loglevel", "error",
+		"-rtsp_transport", opts.RTSPTransport,
+		"-timeout", "5000000", // socket 超时 5s，流不可用时快速失败而不是挂住
+		"-use_wallclock_as_timestamps", "1",
+		"-i", input,
+		"-an",
+		"-frames:v", "1",
+		"-q:v", strconv.Itoa(opts.JPEGQuality),
+		"-y",
+		outputPath,
+	}
+
+	cmd := exec.CommandContext(ctx, s.cfg.FFmpeg.Binary, args...)
+	cmd.Stderr = stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("grab frame failed: %w", err)
+	}
+	return nil
+}
+
 // Done 在进程退出时关闭。
 func (p *CaptureProc) Done() <-chan struct{} { return p.done }
 

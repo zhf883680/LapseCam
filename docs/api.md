@@ -56,22 +56,44 @@
 
 ## 快捷录制（Home Assistant 专用）
 
-两个固定 URL，专门给 HA 等外部自动化调用：无需管理任务 ID、重复调用幂等。
+几个固定 URL，专门给 HA 等外部自动化调用：无需管理任务 ID、重复调用幂等。
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | POST | `/api/quick/start` | 开始录制（使用第一台摄像头） |
 | POST | `/api/quick/stop` | 停止录制并自动出片 |
+| POST | `/api/quick/snapshot?layer=N` | 逐层截图：为当前快捷任务抓一帧（需 `quick.captureMode=layer`） |
+| POST | `/api/quick/layer?layer=N` | 记录层变化时间戳（`quick.captureMode=timestamp` 出片选帧用） |
 
 - 已在录制时 start → `200`，返回当前 `taskId` 与 `"message": "已在录制"`
 - 没有录制时 stop → `200`，返回 `"message": "当前没有正在录制的快捷任务"`
 - 没有可用摄像头时 start → `400` "没有可用摄像头"
 - 同一时间只允许一个快捷录制任务
 
+### 三种抽帧模式（`quick.captureMode`）
+
+| 模式 | 行为 | 适用 |
+| --- | --- | --- |
+| `interval`（默认） | 按 `intervalSeconds` 定时抽帧，全部入片 | 普通场景 |
+| `layer` | 不自动抽帧，由外部在每层结束时调 `/api/quick/snapshot` 抓一帧 | 床滑式打印机（拓竹 A1）逐层截图 |
+| `timestamp` | 连续抽帧 + 外部调 `/api/quick/layer` 记录每层变化时刻，出片时挑最接近每层的帧 | 层触发时机不精确时的兜底 |
+
+`/api/quick/snapshot` 幂等：带 `layer` 参数时同一层只截一次（防 HA 传感器抖动重复触发）；
+`layer` 省略时每次都截。`/api/quick/layer` 只是记录时刻，不抓帧。
+
+> 提示：床滑式打印机（如拓竹 A1）要成片平滑，切片器需开启「平滑延时摄影」（Smooth Timelapse），
+> 让每层结束时工具头在 poop 位停车数秒、床停在固定 Y 位置，截图/选帧才落在稳定位置。
+> `timestamp` 模式里 `layerOffsetSeconds` 用于补偿「层变化上报时刻」与「实际停车时刻」的偏差
+> （层变化上报晚于停车时取负值，需实测校准）。
+
 curl 示例：
 
 ```bash
 curl -X POST http://192.168.1.20:19090/api/quick/start
+# captureMode=layer：每层结束时触发
+curl -X POST "http://192.168.1.20:19090/api/quick/snapshot?layer=3"
+# captureMode=timestamp：每层变化时触发
+curl -X POST "http://192.168.1.20:19090/api/quick/layer?layer=3"
 curl -X POST http://192.168.1.20:19090/api/quick/stop
 ```
 
@@ -121,7 +143,12 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `preview.startTimeout` | 启动等待 go2rtc 就绪超时 |
 | `scheduler.tickSeconds` | 任务调度轮询间隔 |
 | `scheduler.cameraCheckSeconds` | 摄像头在线状态轮询间隔，`0` 关闭 |
-| `quick.name/intervalSeconds/outputFps/width/height` | 快捷录制参数，默认 5s/30FPS/1280×720 |
+| `quick.name` | 快捷任务名称，默认"快捷录制" |
+| `quick.captureMode` | 抽帧模式 `interval`/`layer`/`timestamp`，默认 `interval` |
+| `quick.intervalSeconds` | 抽帧间隔，默认 5s |
+| `quick.layerOffsetSeconds` | timestamp 选帧偏移（秒，可负），默认 0 |
+| `quick.layerWindowSeconds` | timestamp 选帧窗口（秒），默认 5 |
+| `quick.outputFps/width/height` | 成片参数，默认 30FPS/1280×720 |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：
 
@@ -164,7 +191,10 @@ scheduler:
 
 quick:
   name: "快捷录制"
+  captureMode: "interval"   # interval=定时抽帧(默认) | layer=逐层截图 | timestamp=逐层选帧
   intervalSeconds: 5
+  layerOffsetSeconds: 0     # timestamp 模式：选帧目标 = 层变化时刻 + 偏移（秒，可负）
+  layerWindowSeconds: 5     # timestamp 模式：选帧窗口（秒）
   outputFps: 30
   width: 1280
   height: 720

@@ -8,6 +8,7 @@ import (
 	"syscall"
 	"time"
 
+	"timelapse/config"
 	"timelapse/internal/database"
 	"timelapse/internal/ffmpeg"
 )
@@ -33,8 +34,37 @@ func (s *Service) run(w *worker) {
 		return
 	}
 	startedAt := s.ensureStartedAt(task)
-	s.captureLoop(w)
+	if s.isLayerModeTask(task) {
+		// 逐层截图模式：不跑连续抽帧，只等停止/定时结束；帧由 /api/quick/snapshot 提供
+		s.waitForStop(w)
+	} else {
+		s.captureLoop(w)
+	}
 	s.finishTask(task, startedAt)
+}
+
+// isLayerModeTask 判断任务是否处于"逐层截图"模式（仅作用于快捷任务，普通任务不受影响）。
+func (s *Service) isLayerModeTask(task Task) bool {
+	return task.Name == s.cfg.Quick.Name && s.cfg.Quick.CaptureMode == config.CaptureModeLayer
+}
+
+// waitForStop 在逐层截图模式下阻塞等待停止请求或定时结束。
+func (s *Service) waitForStop(w *worker) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		if w.ctx.Err() != nil {
+			return
+		}
+		if s.taskShouldEnd(w.taskID) {
+			return
+		}
+		select {
+		case <-w.ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
 }
 
 // ensureStartedAt 记录任务实际开始时间（首次启动时写入，重启后保留）。
@@ -204,24 +234,56 @@ func (s *Service) finishTask(task Task, startedAt time.Time) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
 
-	err = s.ff.Encode(ctx, filepath.Join(framesDir, "%06d.jpg"), output,
+	inputPattern := filepath.Join(framesDir, "%06d.jpg")
+	frameCount := count
+	if selected, selErr := s.selectFramesByMarkers(task); selErr != nil {
+		if logFile != nil {
+			fmt.Fprintf(logFile, "[%s] layer select failed: %v, fallback to all frames\n", time.Now().Format(time.RFC3339), selErr)
+		}
+	} else if len(selected) > 0 {
+		// 逐层选帧：把选中的帧按顺序复制到 selected/ 子目录后编码
+		selDir := filepath.Join(framesDir, "selected")
+		if err := s.storage.EnsureDir(selDir); err != nil {
+			s.setStatus(task.ID, StatusFailed, "create selected dir: "+err.Error())
+			s.createRecord(task, startedAt, time.Now(), count, 0, "", RecordFailed, err.Error())
+			return
+		}
+		copied := 0
+		for i, num := range selected {
+			src := filepath.Join(framesDir, fmt.Sprintf("%06d.jpg", num))
+			dst := filepath.Join(selDir, fmt.Sprintf("%06d.jpg", i+1))
+			if err := copyFile(src, dst); err != nil {
+				s.setStatus(task.ID, StatusFailed, "copy selected frame: "+err.Error())
+				s.createRecord(task, startedAt, time.Now(), count, 0, "", RecordFailed, err.Error())
+				return
+			}
+			copied++
+		}
+		inputPattern = filepath.Join(selDir, "%06d.jpg")
+		frameCount = copied
+		if logFile != nil {
+			fmt.Fprintf(logFile, "[%s] layer mode: selected %d/%d frames\n", time.Now().Format(time.RFC3339), frameCount, count)
+		}
+	}
+
+	err = s.ff.Encode(ctx, inputPattern, output,
 		task.OutputFPS, task.Width, task.Height,
 		s.cfg.FFmpeg.EncodePreset, s.cfg.FFmpeg.EncodeCRF, stderr)
 	if err != nil {
 		s.setStatus(task.ID, StatusFailed, "encode: "+err.Error())
-		s.createRecord(task, startedAt, time.Now(), count, 0, "", RecordFailed, err.Error())
+		s.createRecord(task, startedAt, time.Now(), frameCount, 0, "", RecordFailed, err.Error())
 		return
 	}
 
 	info, err := os.Stat(output)
 	if err != nil {
 		s.setStatus(task.ID, StatusFailed, "stat video: "+err.Error())
-		s.createRecord(task, startedAt, time.Now(), count, 0, "", RecordFailed, err.Error())
+		s.createRecord(task, startedAt, time.Now(), frameCount, 0, "", RecordFailed, err.Error())
 		return
 	}
 
 	s.setStatus(task.ID, StatusCompleted, "")
-	s.createRecord(task, startedAt, time.Now(), count, info.Size(), output, RecordSuccess, "")
+	s.createRecord(task, startedAt, time.Now(), frameCount, info.Size(), output, RecordSuccess, "")
 }
 
 // videoOutputPath 生成形如：videos/task-1/植物生长_2026-08-12.mp4

@@ -168,6 +168,87 @@ automation:
 
 打印结束时 LapseCam 自动把本次打印的所有帧合成 MP4，随时在 Web 后台回放或下载。暂停即出片；恢复打印时再触发一次 start 会另起一段录制。
 
+### 2.5 拓竹 A1 逐层截图（床滑式专用）
+
+A1 是床滑式，普通定时抽帧每帧床的 Y 位置随机，成片会左右横跳。测试版提供两种「按层」模式
+（`quick.captureMode`），都要求切片器开启**平滑延时摄影**（Smooth Timelapse），让每层结束工具头
+在 poop 位停车数秒、床停在固定 Y 位置：
+
+- `layer`：不自动抽帧，每层结束时由 HA 调 `/api/quick/snapshot?layer=N` 抓一帧（同层自动去重）
+- `timestamp`：连续抽帧 + 每层变化时调 `/api/quick/layer?layer=N` 记录时刻，出片时挑最接近每层的帧
+  （对触发时机不敏感，`layerOffsetSeconds` 补偿上报与停车的偏差，可负，需实测校准）
+
+REST 命令与自动化示例：
+
+```yaml
+rest_command:
+  lapsecam_quick_start:
+    url: "http://<LapseCam IP>:19090/api/quick/start"
+    method: POST
+  lapsecam_quick_stop:
+    url: "http://<LapseCam IP>:19090/api/quick/stop"
+    method: POST
+  lapsecam_quick_snapshot:
+    url: "http://<LapseCam IP>:19090/api/quick/snapshot?layer={{ layer }}"
+    method: POST
+  lapsecam_quick_layer:
+    url: "http://<LapseCam IP>:19090/api/quick/layer?layer={{ layer }}"
+    method: POST
+```
+
+```yaml
+automation:
+  - alias: "3D 打印开始 → 开始延时录制"
+    trigger:
+      - platform: state
+        entity_id: sensor.bambu_lab_status
+        to: "printing"
+    action:
+      - service: rest_command.lapsecam_quick_start
+
+  # captureMode=layer：每层变化 → 截图（delay 等工具头在 poop 位停稳，需实测调整）
+  - alias: "每层变化 → 延时截图"
+    trigger:
+      - platform: state
+        entity_id: sensor.a1_03900d642904879_current_layer
+    condition:
+      - condition: template
+        value_template: "{{ trigger.to_state.state | int(default=0) > 0 }}"
+    action:
+      - delay:
+          seconds: 2
+      - service: rest_command.lapsecam_quick_snapshot
+        data:
+          layer: "{{ trigger.to_state.state | int }}"
+
+  # captureMode=timestamp：每层变化 → 只记录时刻（不截图），出片时选帧
+  # - alias: "每层变化 → 记录层时刻"
+  #   trigger:
+  #     - platform: state
+  #       entity_id: sensor.a1_03900d642904879_current_layer
+  #   action:
+  #     - service: rest_command.lapsecam_quick_layer
+  #       data:
+  #         layer: "{{ trigger.to_state.state | int }}"
+
+  - alias: "3D 打印结束/暂停 → 停止录制并出片"
+    trigger:
+      - platform: state
+        entity_id: sensor.bambu_lab_status
+        from: "printing"
+        to: "idle"
+      - platform: state
+        entity_id: sensor.bambu_lab_status
+        from: "printing"
+        to: "paused"
+    action:
+      - service: rest_command.lapsecam_quick_stop
+```
+
+> `layer` 模式要求配置 `quick.captureMode: "layer"`，`timestamp` 模式要求 `"timestamp"`；
+> 两种模式的接口与参数说明见 [API 与配置参考](docs/api.md)。
+
+
 ### 3. 示例：每天日出到日落自动延时
 
 ```yaml

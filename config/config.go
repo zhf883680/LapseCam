@@ -19,13 +19,23 @@ type Config struct {
 	Quick     QuickConfig     `yaml:"quick"`
 }
 
+// 快捷录制抽帧模式
+const (
+	CaptureModeInterval  = "interval"  // 定时抽帧（默认，原有行为）
+	CaptureModeLayer     = "layer"     // 逐层截图：外部每层触发 POST /api/quick/snapshot
+	CaptureModeTimestamp = "timestamp" // 逐层选帧：连续抽帧 + 记录层变化时间戳，出片时挑最接近每层的帧
+)
+
 // QuickConfig 快捷录制配置（POST /api/quick/start 与 /api/quick/stop）。
 type QuickConfig struct {
-	Name            string `yaml:"name"`            // 快捷任务名称（用于识别）
-	IntervalSeconds int    `yaml:"intervalSeconds"` // 抽帧间隔（秒）
-	OutputFPS       int    `yaml:"outputFps"`       // 成片帧率
-	Width           int    `yaml:"width"`           // 成片宽
-	Height          int    `yaml:"height"`          // 成片高
+	Name               string  `yaml:"name"`            // 快捷任务名称（用于识别）
+	CaptureMode        string  `yaml:"captureMode"`     // 抽帧模式：interval | layer | timestamp
+	IntervalSeconds    int     `yaml:"intervalSeconds"` // 抽帧间隔（秒），interval/timestamp 模式使用
+	LayerOffsetSeconds float64 `yaml:"layerOffsetSeconds"` // timestamp 模式：选帧目标时刻 = 层变化时刻 + 偏移（秒，可负）
+	LayerWindowSeconds float64 `yaml:"layerWindowSeconds"` // timestamp 模式：选帧窗口（秒），窗口内取最接近的一帧
+	OutputFPS          int     `yaml:"outputFps"`       // 成片帧率
+	Width              int     `yaml:"width"`           // 成片宽
+	Height             int     `yaml:"height"`          // 成片高
 }
 
 type ServerConfig struct {
@@ -116,11 +126,14 @@ func Default() *Config {
 		},
 		Scheduler: SchedulerConfig{TickSeconds: 1, CameraCheckSeconds: 60},
 		Quick: QuickConfig{
-			Name:            "快捷录制",
-			IntervalSeconds: 5,
-			OutputFPS:       30,
-			Width:           1280,
-			Height:          720,
+			Name:               "快捷录制",
+			CaptureMode:        CaptureModeInterval,
+			IntervalSeconds:    5,
+			LayerOffsetSeconds: 0,
+			LayerWindowSeconds: 5,
+			OutputFPS:          30,
+			Width:              1280,
+			Height:             720,
 		},
 	}
 }
@@ -199,8 +212,19 @@ func (c *Config) applyDefaults() {
 	if c.Quick.Name == "" {
 		c.Quick.Name = d.Quick.Name
 	}
+	switch c.Quick.CaptureMode {
+	case "", CaptureModeInterval, CaptureModeLayer, CaptureModeTimestamp:
+		if c.Quick.CaptureMode == "" {
+			c.Quick.CaptureMode = d.Quick.CaptureMode
+		}
+	default:
+		c.Quick.CaptureMode = d.Quick.CaptureMode // 非法值回退默认
+	}
 	if c.Quick.IntervalSeconds <= 0 {
 		c.Quick.IntervalSeconds = d.Quick.IntervalSeconds
+	}
+	if c.Quick.LayerWindowSeconds <= 0 {
+		c.Quick.LayerWindowSeconds = d.Quick.LayerWindowSeconds
 	}
 	if c.Quick.OutputFPS <= 0 {
 		c.Quick.OutputFPS = d.Quick.OutputFPS

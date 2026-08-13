@@ -59,6 +59,8 @@ func (s *Server) Handler() http.Handler {
 	// 快捷录制（Home Assistant 等外部自动化调用）
 	mux.HandleFunc("POST /api/quick/start", s.quickStart)
 	mux.HandleFunc("POST /api/quick/stop", s.quickStop)
+	mux.HandleFunc("POST /api/quick/snapshot", s.quickSnapshot) // 逐层截图（captureMode=layer）
+	mux.HandleFunc("POST /api/quick/layer", s.quickLayer)       // 记录层变化（captureMode=timestamp）
 
 	// 实时预览：把 go2rtc 的 /go2rtc/* 反代出去（含 MSE 用的 WebSocket），保持单端口
 	if s.prev.Enabled() {

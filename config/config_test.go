@@ -63,3 +63,42 @@ func TestPreviewDisabled(t *testing.T) {
 		t.Fatal("preview.enabled=false 被默认值覆盖回 true")
 	}
 }
+
+// TestCaptureModeNormalize 锁定 captureMode 默认值与非法的回退行为。
+func TestCaptureModeNormalize(t *testing.T) {
+	cfg := Default()
+	if cfg.Quick.CaptureMode != CaptureModeInterval {
+		t.Fatalf("默认 captureMode = %q, want interval", cfg.Quick.CaptureMode)
+	}
+	if cfg.Quick.LayerWindowSeconds != 5 {
+		t.Fatalf("默认 layerWindowSeconds = %v, want 5", cfg.Quick.LayerWindowSeconds)
+	}
+
+	dir := t.TempDir()
+	for _, mode := range []string{"layer", "timestamp", "interval"} {
+		path := dir + "/m-" + mode + ".yaml"
+		if err := os.WriteFile(path, []byte("quick:\n  captureMode: "+mode+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		c, err := Load(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Quick.CaptureMode != mode {
+			t.Fatalf("captureMode=%s → %s", mode, c.Quick.CaptureMode)
+		}
+	}
+
+	// 非法值回退默认
+	path := dir + "/bad.yaml"
+	if err := os.WriteFile(path, []byte("quick:\n  captureMode: bogus\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Quick.CaptureMode != CaptureModeInterval {
+		t.Fatalf("非法 captureMode 应回退 interval, got %q", c.Quick.CaptureMode)
+	}
+}

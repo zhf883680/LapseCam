@@ -230,6 +230,7 @@ func (s *Service) Delete(id int64) error {
 	}
 	_ = s.storage.RemoveDir(s.storage.FramesDir(id))
 	_ = s.storage.RemoveDir(s.storage.VideosDir(id))
+	_ = s.storage.RemoveFile(s.storage.MarkersFile(id))
 	return nil
 }
 
