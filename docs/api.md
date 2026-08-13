@@ -106,6 +106,18 @@ curl -X POST http://192.168.1.20:19090/api/quick/stop
 | GET | `/api/videos/{id}/file` | 播放/下载 MP4（支持 Range） |
 | DELETE | `/api/videos/{id}` | 删除记录及文件 |
 
+## 数据清理
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/api/cleanup` | 手动触发一次清理，返回 `{cleanedFrames, deletedVideos, orphanDirs, orphanFiles, freedBytes}`；清理进行中返回 `409` |
+
+- 清理内容（由配置 `cleanup` 段控制）：
+  - `removeFramesAfterEncode=true`：删除已出片（completed）任务的中间帧与层标记；
+  - `videoRetentionDays>0`：删除 N 天前的视频记录及文件；
+  - `removeOrphans=true`：删除数据库里已不存在的任务残留目录/日志/标记。
+- `cleanup.enabled` 只控制**自动**清理；手动 `POST /api/cleanup` 始终执行上述开启的策略。
+
 ## 实时预览（go2rtc）
 
 Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP 实时转成浏览器可播的 MSE 流（延迟约 1~2 秒），不占用抽帧/编码线程。
@@ -149,6 +161,11 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `quick.layerOffsetSeconds` | timestamp 选帧偏移（秒，可负），默认 0 |
 | `quick.layerWindowSeconds` | timestamp 选帧窗口（秒），默认 5 |
 | `quick.outputFps/width/height` | 成片参数，默认 30FPS/1280×720 |
+| `cleanup.enabled` | 自动清理总开关，默认 `true`（手动清理不受影响） |
+| `cleanup.intervalHours` | 自动清理间隔（小时），默认 24，`<=0` 回退 24 |
+| `cleanup.removeFramesAfterEncode` | 出片成功后删除中间帧，默认 `true` |
+| `cleanup.videoRetentionDays` | 0=保留全部；>0 只保留最近 N 天视频，默认 0 |
+| `cleanup.removeOrphans` | 清理孤儿数据，默认 `true` |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：
 
