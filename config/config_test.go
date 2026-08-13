@@ -46,6 +46,9 @@ func TestLoadYAML(t *testing.T) {
 	if !cfg.Preview.Enabled || cfg.Preview.BasePath != "/go2rtc" || cfg.Preview.RTSPTransport != "tcp" {
 		t.Errorf("yaml preview 配置异常: %+v", cfg.Preview)
 	}
+	if !cfg.Cleanup.Enabled || cfg.Cleanup.IntervalHours != 24 || !cfg.Cleanup.RemoveFramesAfterEncode || cfg.Cleanup.VideoRetentionDays != 0 || !cfg.Cleanup.RemoveOrphans {
+		t.Fatalf("yaml cleanup 配置异常: %+v", cfg.Cleanup)
+	}
 }
 
 // TestPreviewDisabled 确保用户显式设置 preview.enabled=false 时不会被默认值重置回 true。
@@ -100,5 +103,30 @@ func TestCaptureModeNormalize(t *testing.T) {
 	}
 	if c.Quick.CaptureMode != CaptureModeInterval {
 		t.Fatalf("非法 captureMode 应回退 interval, got %q", c.Quick.CaptureMode)
+	}
+}
+
+// TestCleanupDefaults 锁定清理功能默认值。
+func TestCleanupDefaults(t *testing.T) {
+	cfg := Default()
+	if !cfg.Cleanup.Enabled || cfg.Cleanup.IntervalHours != 24 ||
+		!cfg.Cleanup.RemoveFramesAfterEncode || cfg.Cleanup.VideoRetentionDays != 0 || !cfg.Cleanup.RemoveOrphans {
+		t.Fatalf("cleanup 默认配置异常: %+v", cfg.Cleanup)
+	}
+}
+
+// TestCleanupIntervalHoursNormalize intervalHours<=0 回退默认 24。
+func TestCleanupIntervalHoursNormalize(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/c.yaml"
+	if err := os.WriteFile(path, []byte("cleanup:\n  intervalHours: 0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Cleanup.IntervalHours != 24 {
+		t.Fatalf("intervalHours = %d, want 24", cfg.Cleanup.IntervalHours)
 	}
 }

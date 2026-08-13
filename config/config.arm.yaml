@@ -48,3 +48,10 @@ quick:
   outputFps: 30
   width: 1280
   height: 720
+
+cleanup:
+  enabled: true                 # 自动清理总开关（手动清理不受此开关控制）
+  intervalHours: 24             # 自动清理间隔（小时）
+  removeFramesAfterEncode: true # 出片成功后删除中间帧（最占空间，一次几小时录制几个 GB）
+  videoRetentionDays: 0         # 0=保留全部；>0 只保留最近 N 天视频记录及文件
+  removeOrphans: true           # 清理孤儿数据（无主 task-{id} 目录/日志/标记）

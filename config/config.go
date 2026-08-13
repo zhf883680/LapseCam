@@ -17,6 +17,16 @@ type Config struct {
 	Preview   PreviewConfig   `yaml:"preview"`
 	Scheduler SchedulerConfig `yaml:"scheduler"`
 	Quick     QuickConfig     `yaml:"quick"`
+	Cleanup   CleanupConfig   `yaml:"cleanup"`
+}
+
+// CleanupConfig 数据清理（释放磁盘空间）。
+type CleanupConfig struct {
+	Enabled                 bool `yaml:"enabled"`                 // 自动清理总开关（手动清理不受此开关控制）
+	IntervalHours           int  `yaml:"intervalHours"`           // 自动清理间隔（小时），<=0 回退默认 24
+	RemoveFramesAfterEncode bool `yaml:"removeFramesAfterEncode"` // 出片成功后删除中间帧（含 selected/ 与 layers 标记）
+	VideoRetentionDays      int  `yaml:"videoRetentionDays"`      // 0=保留全部；>0 只保留最近 N 天视频记录及文件
+	RemoveOrphans           bool `yaml:"removeOrphans"`           // 清理孤儿数据（无主 task-{id} 目录/日志/标记）
 }
 
 // 快捷录制抽帧模式
@@ -135,6 +145,13 @@ func Default() *Config {
 			Width:              1280,
 			Height:             720,
 		},
+		Cleanup: CleanupConfig{
+			Enabled:                 true,
+			IntervalHours:           24,
+			RemoveFramesAfterEncode: true,
+			VideoRetentionDays:      0,
+			RemoveOrphans:           true,
+		},
 	}
 }
 
@@ -234,6 +251,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Quick.Height <= 0 {
 		c.Quick.Height = d.Quick.Height
+	}
+	if c.Cleanup.IntervalHours <= 0 {
+		c.Cleanup.IntervalHours = d.Cleanup.IntervalHours
 	}
 }
 
