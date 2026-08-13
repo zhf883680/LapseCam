@@ -38,6 +38,9 @@ cleanup:
 
 代码默认值：`enabled=true`、`intervalHours=24`、`removeFramesAfterEncode=true`、`videoRetentionDays=0`、`removeOrphans=true`。
 
+- `intervalHours<=0` 时回退为默认 24（`applyDefaults` 约束），避免每个 tick 都触发清理；
+- `enabled` 只控制**自动**清理；手动 `POST /api/cleanup` 始终执行配置里开启的子策略（`docs/api.md` 需显式说明这一点）。
+
 ## API
 
 响应沿用现有 envelope 格式：`{"code":0,"message":"ok","data":...}`。
@@ -66,21 +69,24 @@ cleanup:
 - 查 `timelapse_tasks` 中 status=`completed` 的任务；
 - 删除 `frames/task-{id}/`（含 `selected/` 子目录）与 `frames/task-{id}.layers.json`；
 - 目录/文件不存在视为成功（幂等）；
-- 删除后 `enrich` 中 FrameCount 回退为最近一条 success 记录（或任务表记录）的帧数，避免任务列表帧数显示 0。实现上：`CountFiles` 为 0 且任务已 completed 时，查询该任务最近一条成功记录的 frame_count 展示。
+- 计数语义：统计中 `cleanedFrames` 只计入"删除前 `frames/task-{id}/` 目录实际存在且被删除"的任务数；删除前先 `os.Stat` 判断目录存在性，不存在则不计数（保证重复清理统计稳定）。`layers.json` 独立于该计数：目录不存在但标记文件存在时，标记文件仍删除，`freedBytes` 计入其字节数；
+- 删除后 `enrich` 中 FrameCount 回退为最近一条 success 记录的帧数，避免任务列表帧数显示 0。实现上：`CountFiles` 为 0 且任务已 completed 时，按 `ORDER BY id DESC LIMIT 1` 查询该任务最近一条 status=success 的记录的 frame_count 展示；无 success 记录时展示 0。`timelapse_tasks` 表不存帧数列，回退数据源只有 records 表。
 
 ### 2. 旧视频保留（videoRetentionDays）
 
 - `videoRetentionDays <= 0` 时跳过；
 - 删除 `created_at < now - retentionDays` 的 `timelapse_records`，逐条删除其 `file_path` 文件后删记录；
-- 失败的记录（无文件）同样删除，保持列表干净。
+- 失败的记录（无文件）同样删除，保持列表干净；
+- 删除文件后，对其所在 `videos/task-{id}/` 目录执行 `os.Remove`（仅当目录为空时成功；非空目录报错忽略），顺带清掉空目录，不留残留；
+- `deletedVideos` 只计入实际删除的记录条数。
 
 ### 3. 孤儿清理（removeOrphans）
 
-- 先查全部 `timelapse_tasks.id` 集合；
-- 扫描 `frames/`、`videos/` 根目录下的 `task-{id}` 目录，ID 不在集合中 → 删除；
-- 扫描 `frames/` 根目录下的 `task-{id}.layers.json` 文件，ID 不在集合中 → 删除；
-- 扫描 `logs/` 根目录下的 `task-{id}.log` 文件，ID 不在集合中 → 删除；
-- 目录/文件解析不出 task id（格式不符）一律跳过，不做任何删除。
+- 扫描 `frames/`、`videos/` 根目录下的 `task-{id}` 目录；
+- 扫描 `frames/` 根目录下的 `task-{id}.layers.json` 文件与 `logs/` 根目录下的 `task-{id}.log` 文件，同样在删除前逐条重查 ID 是否存在，存在则跳过；
+- 目录/文件解析不出 task id（格式不符）一律跳过，不做任何删除；
+- 计数语义：`orphanDirs`/`orphanFiles` 只计入实际存在的、被删除的项（删除前 stat 判断）；
+- **并发安全（防误删活任务）**：不用"一次性快照 ID 集合"的方式。对每个候选 `task-{id}`，删除前**逐条重查** `timelapse_tasks` 是否存在该 ID，存在则跳过。安全性依据：`Create` 总是先插入行、后由 worker 创建目录（`EnsureDir`），且 AUTOINCREMENT 的 ID 不会被复用——因此重查时行存在的目录必属于活任务，绝不删除；重查时行不存在的目录只可能是任务已删除的残留（`Delete` 本身也会删这些目录，重复删无害）。
 
 ### 4. 释放空间统计
 
@@ -89,7 +95,9 @@ cleanup:
 ## 自动清理调度
 
 - `scheduleLoop` 中记录 `lastCleanup` 时间（服务启动时为 `time.Time{}`，即启动后立即首次检查）；
-- 每 tick 检查：`cleanup.enabled && now - lastCleanup >= intervalHours` 且无清理进行中 → `go s.Cleanup()` 并更新 `lastCleanup`；
+- 每 tick 检查：`cleanup.enabled && now - lastCleanup >= intervalHours` 且无清理进行中 → `go s.Cleanup()` 并在触发时更新 `lastCleanup`；
+- 清理进行中时跳过本轮：`lastCleanup` 不更新，下个 tick 若清理已结束且仍到间隔则再试（即"尽快补跑"，不等下个间隔）；
+- 手动 `POST /api/cleanup` 成功后把 `lastCleanup` 置为当前时间，避免手动清理后自动清理紧接着又跑一轮；
 - 清理在独立 goroutine 执行，通过 `sync.Mutex`（或 atomic bool）防止手动/自动并发重入。
 
 ## 实现
@@ -97,7 +105,8 @@ cleanup:
 ### 服务层（internal/timelapse）
 
 - 新增 `Cleanup() (CleanupStats, error)` 方法，返回统计结构；
-- 新增 `cleanupMu sync.Mutex`（或复用现有锁，注意不要与其他方法死锁；实现时优先独立锁）；
+- 并发控制：新增独立的 `cleanupMu sync.Mutex` 并配合 `TryLock`；已在进行中时返回哨兵错误 `ErrCleanupInProgress`，API 层据此返回 `409`（不阻塞挂起）；
+- 自动调度检查到清理进行中时跳过本轮，下次间隔再试；
 - 新增 `enrich` 的帧数回退逻辑；
 - 调度器接入：`StartScheduler` 初始化 `lastCleanup`，`scheduleLoop` 检查并触发。
 
@@ -126,8 +135,10 @@ cleanup:
 - 清理后 completed 任务的 frames 目录被删除，failed 任务的保留；
 - 孤儿目录/日志/标记文件被删除，有效任务的保留；
 - `videoRetentionDays` 到期记录及其文件被删除，未到期保留；`0` 时全部保留；
-- 重复调用（模拟清理中）不并发重入（逻辑层验证）；
-- 清理统计（freedBytes/计数）正确。
+- 重复调用（模拟清理中）返回 `ErrCleanupInProgress`，不并发重入；
+- 清理统计（freedBytes/计数）正确，且重复清理（无实际删除）统计稳定；
+- 清理后 `Get`/`List` 的 completed 任务 FrameCount 回退为最近 success 记录帧数；无 success 记录时显示 0；
+- `intervalHours<=0` 被 `applyDefaults` 归一为默认值。
 
 API/Web 为薄封装，不做额外测试。
 
