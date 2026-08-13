@@ -30,6 +30,9 @@ type Service struct {
 
 	mu      sync.Mutex
 	workers map[int64]*worker
+
+	cleanupMu   sync.Mutex // 清理互斥（Cleanup 用 TryLock 防并发）
+	lastCleanup time.Time  // 上次成功清理时间（自动清理计时用）
 }
 
 func New(db *sql.DB, cfg *config.Config, ff *ffmpeg.Service, cam *camera.Service, st *storage.Service) *Service {
@@ -258,6 +261,7 @@ func (s *Service) scheduleLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.processScheduled()
+			s.maybeRunCleanup()
 		}
 	}
 }
@@ -400,6 +404,12 @@ func (s *Service) enrich(t *Task) {
 	}
 	if count, err := s.storage.CountFiles(s.storage.FramesDir(t.ID)); err == nil {
 		t.FrameCount = count
+		if count == 0 && t.Status == StatusCompleted {
+			// 中间帧已被清理：回退展示最近一条成功记录的帧数
+			if n, err := s.latestRecordFrameCount(t.ID); err == nil {
+				t.FrameCount = n
+			}
+		}
 	}
 	if (t.Status == StatusRunning || t.Status == StatusStopping) && t.EndAt != nil {
 		base := t.StartAt
