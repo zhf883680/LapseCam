@@ -128,6 +128,9 @@ Webhook 载荷（POST JSON）：
 }
 ```
 
+> Bark 推送（`vision.bark.enabled=true` 时）：确认故障后同样发一条文字推送，标题为状态中文名
+> （如「3D 打印异常：炒面」），正文为 AI reason + 置信度；当前版本不带图片。
+
 ## 视频
 
 | 方法 | 路径 | 说明 |
@@ -206,6 +209,9 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `vision.failureStreak` | 连续 N 次判异常才告警，默认 `2` |
 | `vision.cooldownSeconds` | 同一任务重复告警冷却（秒），默认 `300` |
 | `vision.webhook.enabled/url` | 告警 Webhook 开关与地址 |
+| `vision.bark.enabled/key` | Bark iOS 文字推送开关与设备 key（可选，与 Webhook 独立） |
+| `vision.bark.group/level` | Bark 通知分组 / 中断级别（`active`/`timeSensitive`/`critical`） |
+| `vision.bark.baseUrl` | 默认 `https://api.day.app`（自建 Bark 可改） |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：
 

@@ -125,10 +125,12 @@ func (s *Service) CheckRecent(ctx context.Context, taskID int64) error {
 		log.Printf("[printcheck] save alert image failed: %v", imgErr)
 	}
 	_, _ = s.db.Exec(`UPDATE vision_checks SET alert=1, image_path=? WHERE id=?`, imgPath, id)
-	s.sendWebhook(taskID, Check{
+	c := Check{
 		ID: id, TaskID: taskID, Status: res.Status, Confidence: res.Confidence,
 		Reason: res.Reason, ImagePath: imgPath, Alert: true, CreatedAt: now,
-	})
+	}
+	s.sendWebhook(taskID, c)
+	s.sendBark(c)
 	return nil
 }
 

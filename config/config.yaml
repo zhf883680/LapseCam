@@ -75,3 +75,9 @@ vision:
   webhook:
     enabled: false
     url: ""                     # 如 http://homeassistant:8123/api/webhook/lapsecam-print
+  bark:
+    enabled: false              # Bark iOS 推送（只发文字，不带图片）
+    key: ""                     # Bark 设备 key（Bark APP 里复制的那串）
+    group: "LapseCam"           # 通知中心分组
+    level: ""                   # active / timeSensitive / critical，空=默认
+    baseUrl: "https://api.day.app"   # 自建 Bark 服务可改

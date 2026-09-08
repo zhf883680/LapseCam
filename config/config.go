@@ -111,6 +111,16 @@ type VisionConfig struct {
 	FailureStreak   int           `yaml:"failureStreak"`   // 连续 N 次分析判异常才告警（防单次误报）
 	CooldownSeconds int           `yaml:"cooldownSeconds"` // 同一打印任务重复告警冷却（秒）
 	Webhook         WebhookConfig `yaml:"webhook"`         // 告警回调（Home Assistant 等）
+	Bark            BarkConfig    `yaml:"bark"`            // Bark 推送（iOS 通知，可选）
+}
+
+// BarkConfig Bark 推送（https://bark.day.app）。只发文字，不带图片。
+type BarkConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	Key     string `yaml:"key"`     // Bark 设备 key（APP 里复制的那串）
+	Group   string `yaml:"group"`   // 通知中心分组，默认 LapseCam
+	Level   string `yaml:"level"`   // active/timeSensitive/critical，空=默认 active
+	BaseURL string `yaml:"baseUrl"` // 默认 https://api.day.app（自建 Bark 服务可改）
 }
 
 // WebhookConfig 故障告警 Webhook。
@@ -189,6 +199,7 @@ func Default() *Config {
 			FailureStreak:   2,
 			CooldownSeconds: 300,
 			Webhook:         WebhookConfig{Enabled: false},
+			Bark:            BarkConfig{Enabled: false, BaseURL: "https://api.day.app"},
 		},
 	}
 }
@@ -318,6 +329,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Vision.CooldownSeconds < 0 {
 		c.Vision.CooldownSeconds = d.Vision.CooldownSeconds
+	}
+	if c.Vision.Bark.BaseURL == "" {
+		c.Vision.Bark.BaseURL = d.Vision.Bark.BaseURL
 	}
 }
 

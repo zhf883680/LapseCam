@@ -273,12 +273,17 @@ automation:
    vision:
      enabled: true          # 打开 AI 分析
      analyzeFrames: 5       # 每次取最近几张（层）发给模型，按你的打印节奏调
-     webhook:
+     webhook:               # 方式一：Webhook（HA 等）
        enabled: true
        url: "http://homeassistant:8123/api/webhook/lapsecam-print"
+     bark:                  # 方式二（可选）：Bark iOS 推送，只发文字
+       enabled: true
+       key: "你的 Bark 设备 key"
+       group: "LapseCam"
    ```
 
-4. 重启 LapseCam。之后每截一层图会自动分析；想看结果（HA 做传感器/自动化判断）：
+4. 重启 LapseCam。之后每截一层图会自动分析；告警会推 Bark / Webhook。
+   想看结果（HA 做传感器/自动化判断）：
    ```bash
    curl http://<LapseCam IP>:19090/api/quick/check    # 最近一次分析结果
    curl "http://<LapseCam IP>:19090/api/quick/checks?limit=10"   # 历史

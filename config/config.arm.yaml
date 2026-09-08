@@ -76,3 +76,9 @@ vision:
   webhook:
     enabled: false
     url: ""
+  bark:
+    enabled: false
+    key: ""
+    group: "LapseCam"
+    level: ""
+    baseUrl: "https://api.day.app"

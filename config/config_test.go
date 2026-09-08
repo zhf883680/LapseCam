@@ -150,6 +150,12 @@ func TestVisionDefaults(t *testing.T) {
 	if cfg.Vision.Webhook.Enabled {
 		t.Error("webhook 默认应关闭")
 	}
+	if cfg.Vision.Bark.Enabled {
+		t.Error("bark 默认应关闭")
+	}
+	if cfg.Vision.Bark.BaseURL != "https://api.day.app" {
+		t.Errorf("bark 默认 baseUrl = %q", cfg.Vision.Bark.BaseURL)
+	}
 }
 
 // TestVisionLoadYAML 确保随仓库发布的 config.yaml 能解析出 vision 段。
