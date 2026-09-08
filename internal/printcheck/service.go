@@ -283,7 +283,7 @@ func (s *Service) sendWebhook(taskID int64, c Check) {
 		"status":     c.Status,
 		"confidence": c.Confidence,
 		"reason":     c.Reason,
-		"timestamp":  c.CreatedAt.Format(time.RFC3339),
+		"timestamp":  c.CreatedAt.Local().Format(time.RFC3339),
 	}
 	if c.ID > 0 {
 		payload["image"] = fmt.Sprintf("/api/quick/checks/%d/image", c.ID)
