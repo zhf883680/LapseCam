@@ -23,6 +23,18 @@
 
 ---
 
+
+## 📸 界面预览
+
+> 截图来自内置 Web 管理后台（单文件，随二进制分发，无需构建）。
+
+| 摄像头管理 | 延时摄影任务 |
+| --- | --- |
+| ![摄像头管理](https://raw.githubusercontent.com/zhf883680/LapseCam/master/img/ScreenShot_2026-09-08_165452_462.png) | ![延时摄影任务](https://raw.githubusercontent.com/zhf883680/LapseCam/master/img/ScreenShot_2026-09-08_165518_252.png) |
+
+| 生成的视频 | AI 打印监控 |
+| --- | --- |
+| ![生成的视频](https://raw.githubusercontent.com/zhf883680/LapseCam/master/img/ScreenShot_2026-09-08_165526_678.png) | ![AI 打印监控](https://raw.githubusercontent.com/zhf883680/LapseCam/master/img/ScreenShot_2026-09-08_165535_313.png) |
 ## 🚀 快速开始
 
 ### 方式一：Docker（直接使用 Docker Hub 镜像）
