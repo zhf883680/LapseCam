@@ -206,7 +206,9 @@ func (s *Service) ListAll(limit int) ([]Check, error) {
 		c.CameraName = camName.String
 		c.Alert = alert == 1
 		c.CreatedAt = database.ParseTime(createdAt)
-		c.ImageURL = fmt.Sprintf("/api/checks/%d/image", c.ID)
+		if c.ImagePath != "" {
+			c.ImageURL = fmt.Sprintf("/api/checks/%d/image", c.ID)
+		}
 		out = append(out, c)
 	}
 	return out, rows.Err()

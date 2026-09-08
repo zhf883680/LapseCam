@@ -19,6 +19,7 @@ type configView struct {
 	CaptureMode string     `json:"captureMode"`
 	AIEnabled   bool       `json:"aiEnabled"`
 	Vision      visionView `json:"vision"`
+	Others      string     `json:"others"` // 除 vision 外的完整配置（YAML 原文，供“其他设置”编辑）
 }
 
 type visionView struct {
@@ -50,6 +51,7 @@ type visionView struct {
 type configInput struct {
 	CaptureMode *string   `json:"captureMode"`
 	Vision      *visionIn `json:"vision"`
+	Others      *string   `json:"others"` // 非空时：整体替换除 vision 外的配置段（YAML 原文）
 }
 
 type visionIn struct {
@@ -82,6 +84,7 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 		Path:        s.cfgPath,
 		CaptureMode: s.cfg.Quick.CaptureMode,
 		AIEnabled:   s.pc != nil && s.pc.Enabled(),
+		Others:      s.othersRaw(),
 		Vision: visionView{
 			Enabled:         vc.Enabled,
 			Provider:        vc.Provider,
@@ -143,6 +146,11 @@ func (s *Server) applyConfigInput(in configInput) error {
 		return fmt.Errorf("read config: %w", err)
 	}
 	lines := strings.Split(strings.ReplaceAll(string(raw), "\r\n", "\n"), "\n")
+
+	// 其它功能配置整段替换（YAML 原文，不含 vision，由这里自动合并回来）
+	if in.Others != nil {
+		return s.applyOthersConfig(raw, in)
+	}
 
 	// quick.captureMode（只改这一行，保留 quick 其它参数）
 	if in.CaptureMode != nil {
@@ -386,4 +394,137 @@ func upsertTopLevel(lines []string, block string) []string {
 		out = append(out, lines[end:]...)
 	}
 	return out
+}
+
+// othersRaw 返回配置文件中除 vision 段外的原文（设置页“其他设置”用，避免 Key 回传）。
+func (s *Server) othersRaw() string {
+	raw, err := os.ReadFile(s.cfgPath)
+	if err != nil {
+		return ""
+	}
+	lines := splitLines(string(raw))
+	start, end := findTopBlock(lines, "vision")
+	if start < 0 {
+		return strings.Join(lines, "\n")
+	}
+	out := append([]string{}, lines[:start]...)
+	out = append(out, lines[end:]...)
+	return strings.TrimSpace(strings.Join(out, "\n"))
+}
+
+// applyOthersConfig 用页面提交的“其它配置”YAML + 自动合并 vision 段，写回 config 文件。
+func (s *Server) applyOthersConfig(raw []byte, in configInput) error {
+	others := strings.TrimSpace(*in.Others)
+	if others == "" {
+		return fmt.Errorf("其它配置不能为空")
+	}
+	var node yaml.Node
+	if err := yaml.Unmarshal([]byte(others), &node); err != nil {
+		return fmt.Errorf("YAML 语法错误: %w", err)
+	}
+	lines := splitLines(others)
+	lines = removeTopBlock(lines, "vision") // 即使误贴了 vision 段也剥掉，避免重复
+
+	if in.CaptureMode != nil {
+		if err := patchQuickCaptureMode(lines, *in.CaptureMode); err != nil {
+			return err
+		}
+	}
+
+	// vision 段用当前运行配置重建，Key 只取文件里已存的值（不留环境变量 Key）
+	stored := storedKeys(raw)
+	vc := s.cfg.Vision
+	vc.APIKey = stored.visionKey
+	vc.Bark.Key = stored.barkKey
+	block, err := marshalVision(vc)
+	if err != nil {
+		return err
+	}
+	lines = upsertTopLevel(lines, block)
+
+	path := s.cfgPath
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+		return fmt.Errorf("write config tmp: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("replace config: %w", err)
+	}
+	return nil
+}
+
+// patchQuickCaptureMode 只替换 quick.captureMode 那一行；quick 段不存在则追加。
+func patchQuickCaptureMode(lines []string, mode string) error {
+	switch strings.TrimSpace(mode) {
+	case config.CaptureModeInterval, config.CaptureModeLayer, config.CaptureModeTimestamp:
+	default:
+		return fmt.Errorf("captureMode 只能是 interval/layer/timestamp")
+	}
+	mode = strings.TrimSpace(mode)
+	replaced := false
+	for i := 0; i < len(lines); i++ {
+		if !strings.HasPrefix(lines[i], "quick:") {
+			continue
+		}
+		for j := i + 1; j < len(lines); j++ {
+			if isTopLevel(lines[j]) {
+				break
+			}
+			if strings.HasPrefix(strings.TrimSpace(lines[j]), "captureMode:") {
+				lines[j] = indentLine(lines[j], fmt.Sprintf("captureMode: %q", mode))
+				replaced = true
+			}
+		}
+		break
+	}
+	if !replaced {
+		lines = append(lines, "quick:", fmt.Sprintf("  captureMode: %q", mode))
+	}
+	return nil
+}
+
+func splitLines(s string) []string {
+	return strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+}
+
+// findTopBlock 找顶层 key 块 [start, end)：start 是 "key:" 行，end 是其后第一个顶层级行。
+func findTopBlock(lines []string, key string) (int, int) {
+	for i, l := range lines {
+		if strings.TrimSpace(l) == key+":" {
+			end := i + 1
+			for end < len(lines) && !isTopLevel(lines[end]) {
+				end++
+			}
+			return i, end
+		}
+	}
+	return -1, -1
+}
+
+// removeTopBlock 去掉顶层 key 块（连同块后多余空行）。
+func removeTopBlock(lines []string, key string) []string {
+	start, end := findTopBlock(lines, key)
+	if start < 0 {
+		return lines
+	}
+	out := append([]string{}, lines[:start]...)
+	out = append(out, lines[end:]...)
+	// 压缩成最多一个分隔空行
+	trimmed := make([]string, 0, len(out))
+	blank := 0
+	for _, l := range out {
+		if strings.TrimSpace(l) == "" {
+			blank++
+			if blank > 1 {
+				continue
+			}
+		} else {
+			blank = 0
+		}
+		trimmed = append(trimmed, l)
+	}
+	for len(trimmed) > 0 && strings.TrimSpace(trimmed[len(trimmed)-1]) == "" {
+		trimmed = trimmed[:len(trimmed)-1]
+	}
+	return trimmed
 }

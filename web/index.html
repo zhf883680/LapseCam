@@ -60,7 +60,8 @@ tr:hover td{background:rgba(56,189,248,.05)}
 .form-row{margin-bottom:12px}
 .form-row label{display:block;margin-bottom:5px;color:var(--muted);font-size:12px}
 .form-row input,.form-row select{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px}
-.form-row input:focus,.form-row select:focus{outline:none;border-color:var(--accent)}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{outline:none;border-color:var(--accent)}
+.form-row textarea{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace;line-height:1.55;box-sizing:border-box}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .form-check{display:flex;align-items:center;gap:8px;margin-top:4px}
 .form-check input{width:auto}
@@ -170,6 +171,14 @@ video{width:100%;border-radius:10px;background:#000}
           <div class="form-row"><label>group</label><input id="bGroup" placeholder="LapseCam"></div>
           <div class="form-row"><label>level（active/timeSensitive/critical）</label><input id="bLevel" placeholder="timeSensitive"></div>
         </div>
+      </div>
+
+      <div class="panel">
+        <h3>其他设置（server / quick / scheduler / cleanup / preview / ffmpeg …）</h3>
+        <div class="form-row"><label>直接编辑除 vision 外的其它配置（YAML 原文）；AI 相关请用上方表单。保存后需重启生效。</label>
+        <textarea id="otherCfg" rows="20" spellcheck="false"></textarea></div>
+        <button class="btn ghost" onclick="saveOtherCfg()">💾 保存其他配置</button>
+        <span class="muted" style="margin-left:10px;font-size:12px">不含 vision 段，保存时自动合并；Key 不会出现在这里</span>
       </div>
       <div style="display:flex;gap:10px;margin:18px 0">
         <button class="btn" onclick="saveConfig(false)">💾 保存</button>
@@ -656,6 +665,7 @@ async function loadConfig(){
     document.getElementById('bBaseUrl').value = v.barkBaseUrl || '';
     document.getElementById('bGroup').value = v.barkGroup || '';
     document.getElementById('bLevel').value = v.barkLevel || '';
+    document.getElementById('otherCfg').value = c.others || '';
     document.getElementById('cfgHint').textContent = c.aiEnabled
       ? '当前 AI 已启用。改动后点「保存并重启生效」；服务由 systemd/Docker 自动拉起。'
       : 'AI 当前未启用：启用需配置 apiKey（或环境变量 VISION_API_KEY）并确保摄像头可用；改动后点「保存并重启生效」。';
@@ -718,6 +728,15 @@ setInterval(loadHealth, 10000);
 setInterval(loadCameras, 5000);
 setInterval(loadTasks, 3000);
 setInterval(loadVideos, 5000);
+
+async function saveOtherCfg(){
+  const others = document.getElementById('otherCfg').value;
+  try{
+    const r = await api('/config', 'PUT', {others: others});
+    toast(r.message || '已保存其它配置（重启后生效）');
+  }catch(e){ toast('保存失败：' + e.message, 'err'); }
+}
+
 setInterval(()=>{ const a=document.querySelector('.tab.active'); if(a && a.dataset.tab==='ai') loadAiChecks(); }, 8000);
 </script>
 </body>
