@@ -107,11 +107,17 @@ fi
 install -d /opt/lapsecam /etc/lapsecam /mnt/data/lapsecam
 
 # ---- 5. 安装二进制 / 配置 / 服务单元 ----
+# 配置只在“不存在”时安装：升级程序不能覆盖你在 /etc/lapsecam/config.yaml 里的改动
+# （如需恢复默认配置：rm /etc/lapsecam/config.yaml 后再跑一次）
 install -m 0755 "$BIN" /usr/local/bin/lapsecam
-install -m 0644 "$CONF" /etc/lapsecam/config.yaml
+if [ -f /etc/lapsecam/config.yaml ]; then
+  echo "==> 保留已有配置：/etc/lapsecam/config.yaml（如新增配置项请手动补充，见 config.arm.yaml）"
+else
+  install -m 0644 "$CONF" /etc/lapsecam/config.yaml
+  echo "==> 已安装配置：/etc/lapsecam/config.yaml"
+fi
 install -m 0644 "$UNIT" /etc/systemd/system/lapsecam.service
 echo "==> 已安装：/usr/local/bin/lapsecam"
-echo "==> 已安装：/etc/lapsecam/config.yaml（如需改端口/存储路径，改这里）"
 
 # ---- 6. 注册并启动服务 ----
 systemctl daemon-reload
