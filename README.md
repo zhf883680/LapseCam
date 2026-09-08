@@ -194,6 +194,9 @@ journalctl -u lapsecam | grep -i printcheck                # 分析/推送日志
 
 - **Bark**：确认故障时推一条文字通知（标题如「3D 打印异常：炒面」，正文为 AI reason + 置信度）。
   当前版本不带图片；`baseUrl` 支持自建 Bark 服务。Bark 用法见 <https://bark.day.app/#/tutorial>。
+- **现场图留存**：只要某次分析判为异常，就把当时最新一帧复制到 `data/vision/task-{id}/events/`
+  （即使还没到告警阈值）。出片/清理会删除 `frames/` 中间帧，但这里的留存副本不受影响，
+  「AI 监控」页审计记录里的现场图始终可看。
 - **Webhook**：确认故障时 POST JSON：
 
 ```json

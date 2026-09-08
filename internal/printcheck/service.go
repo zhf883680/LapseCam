@@ -106,12 +106,24 @@ func (s *Service) CheckRecent(ctx context.Context, taskID int64) error {
 	}
 
 	abnormal := isAbnormal(res.Status, res.Confidence, s.cfg.Vision.MinConfidence)
-	id := s.insertCheck(taskID, res.Status, res.Confidence, res.Reason, "", false, now)
-	if !abnormal {
+
+	// 只要判异常就先留存一份现场图（最新一帧）到 data/vision/task-{id}/events/。
+	// 出片/清理会删掉 frames 里的中间帧，但这里的留存副本不受影响，审计随时能看。
+	imgPath := ""
+	if abnormal {
+		p, imgErr := s.saveCheckImage(taskID, images[len(images)-1], res.Status, now)
+		if imgErr != nil {
+			log.Printf("[printcheck] save alert image failed: %v", imgErr)
+		} else {
+			imgPath = p
+		}
+	}
+	id := s.insertCheck(taskID, res.Status, res.Confidence, res.Reason, imgPath, false, now)
+	if !abnormal || id == 0 {
 		return nil
 	}
 
-	// 连续异常次数 & 冷却判定
+	// 连续异常次数 & 冷却判定（达标才算“告警”，才发 Bark/Webhook）
 	streak := s.trailingStreak(taskID)
 	lastAlert := s.lastAlertTime(taskID)
 	cooldown := time.Duration(s.cfg.Vision.CooldownSeconds) * time.Second
@@ -119,12 +131,7 @@ func (s *Service) CheckRecent(ctx context.Context, taskID int64) error {
 		return nil
 	}
 
-	// 告警：保存现场图（最新一帧）→ 标记 alert → 发 Webhook
-	imgPath, imgErr := s.saveAlertImage(taskID, images[len(images)-1], res.Status, now)
-	if imgErr != nil {
-		log.Printf("[printcheck] save alert image failed: %v", imgErr)
-	}
-	_, _ = s.db.Exec(`UPDATE vision_checks SET alert=1, image_path=? WHERE id=?`, imgPath, id)
+	_, _ = s.db.Exec(`UPDATE vision_checks SET alert=1 WHERE id=?`, id)
 	c := Check{
 		ID: id, TaskID: taskID, Status: res.Status, Confidence: res.Confidence,
 		Reason: res.Reason, ImagePath: imgPath, Alert: true, CreatedAt: now,
@@ -293,7 +300,7 @@ func (s *Service) lastAlertTime(taskID int64) time.Time {
 	return database.ParseTime(created.String)
 }
 
-func (s *Service) saveAlertImage(taskID int64, data []byte, status string, when time.Time) (string, error) {
+func (s *Service) saveCheckImage(taskID int64, data []byte, status string, when time.Time) (string, error) {
 	dir := s.st.VisionEventsDir(taskID)
 	if err := s.st.EnsureDir(dir); err != nil {
 		return "", err

@@ -134,6 +134,9 @@ Webhook 载荷（POST JSON）：
 
 > Bark 推送（`vision.bark.enabled=true` 时）：确认故障后同样发一条文字推送，标题为状态中文名
 > （如「3D 打印异常：炒面」），正文为 AI reason + 置信度；当前版本不带图片。
+>
+> 现场图留存：只要某次分析判为异常（不一定要达到告警阈值），就把最新一帧复制到
+> `data/vision/task-{id}/events/`，出片清理中间帧不影响这份副本；审计记录 `imageUrl` 始终可访问。
 
 ## 视频
 
