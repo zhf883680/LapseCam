@@ -32,8 +32,9 @@ type Service struct {
 	st  *storage.Service
 
 	mu      sync.Mutex
-	busy    map[int64]bool // 每个任务同时只跑一个分析
-	pending map[int64]bool // 分析期间又来新截图 → 结束后补一次
+	busy    map[int64]bool      // 每个任务同时只跑一个分析
+	pending map[int64]bool      // 分析期间又来新截图 → 结束后补一次
+	lastRun map[int64]time.Time // 每个任务最近一次分析的开始时间（最小间隔节流用）
 }
 
 func New(db *sql.DB, cfg *config.Config, vs *vision.Service, st *storage.Service) *Service {
@@ -44,6 +45,7 @@ func New(db *sql.DB, cfg *config.Config, vs *vision.Service, st *storage.Service
 		st:      st,
 		busy:    make(map[int64]bool),
 		pending: make(map[int64]bool),
+		lastRun: make(map[int64]time.Time),
 	}
 }
 
@@ -58,6 +60,17 @@ func (s *Service) Enabled() bool {
 func (s *Service) CheckRecent(ctx context.Context, taskID int64) error {
 	if !s.Enabled() {
 		return nil
+	}
+	// 最小分析间隔：层太快（如每 5s 打一层）时也只每 analyzeIntervalSeconds 秒分析一次，
+	// 避免 AI 请求过密（截图本身照常，只节流分析）
+	if sec := s.cfg.Vision.AnalyzeIntervalSeconds; sec > 0 {
+		s.mu.Lock()
+		if last, ok := s.lastRun[taskID]; ok && time.Since(last) < time.Duration(sec)*time.Second {
+			s.mu.Unlock()
+			return nil
+		}
+		s.lastRun[taskID] = time.Now()
+		s.mu.Unlock()
 	}
 	s.mu.Lock()
 	if s.busy[taskID] {

@@ -23,19 +23,20 @@ type configView struct {
 }
 
 type visionView struct {
-	Enabled         bool    `json:"enabled"`
-	Provider        string  `json:"provider"`
-	BaseURL         string  `json:"baseUrl"`
-	Model           string  `json:"model"`
-	APIKey          string  `json:"apiKey"` // 只读：始终空
-	APIKeySet       bool    `json:"apiKeySet"`
-	TimeoutSec      int     `json:"timeoutSec"`
-	Detail          string  `json:"detail"`
-	DisableThinking bool    `json:"disableThinking"`
-	AnalyzeFrames   int     `json:"analyzeFrames"`
-	MinConfidence   float64 `json:"minConfidence"`
-	FailureStreak   int     `json:"failureStreak"`
-	CooldownSeconds int     `json:"cooldownSeconds"`
+	Enabled            bool    `json:"enabled"`
+	Provider           string  `json:"provider"`
+	BaseURL            string  `json:"baseUrl"`
+	Model              string  `json:"model"`
+	APIKey             string  `json:"apiKey"` // 只读：始终空
+	APIKeySet          bool    `json:"apiKeySet"`
+	TimeoutSec         int     `json:"timeoutSec"`
+	Detail             string  `json:"detail"`
+	DisableThinking    bool    `json:"disableThinking"`
+	AnalyzeFrames      int     `json:"analyzeFrames"`
+	AnalyzeIntervalSec int     `json:"analyzeIntervalSec"`
+	MinConfidence      float64 `json:"minConfidence"`
+	FailureStreak      int     `json:"failureStreak"`
+	CooldownSeconds    int     `json:"cooldownSeconds"`
 
 	WebhookEnabled bool   `json:"webhookEnabled"`
 	WebhookURL     string `json:"webhookUrl"`
@@ -56,18 +57,19 @@ type configInput struct {
 }
 
 type visionIn struct {
-	Enabled         *bool    `json:"enabled"`
-	Provider        *string  `json:"provider"`
-	BaseURL         *string  `json:"baseUrl"`
-	Model           *string  `json:"model"`
-	APIKey          *string  `json:"apiKey"` // 空 = 保持原值
-	TimeoutSec      *int     `json:"timeoutSec"`
-	Detail          *string  `json:"detail"`
-	DisableThinking *bool    `json:"disableThinking"`
-	AnalyzeFrames   *int     `json:"analyzeFrames"`
-	MinConfidence   *float64 `json:"minConfidence"`
-	FailureStreak   *int     `json:"failureStreak"`
-	CooldownSeconds *int     `json:"cooldownSeconds"`
+	Enabled            *bool    `json:"enabled"`
+	Provider           *string  `json:"provider"`
+	BaseURL            *string  `json:"baseUrl"`
+	Model              *string  `json:"model"`
+	APIKey             *string  `json:"apiKey"` // 空 = 保持原值
+	TimeoutSec         *int     `json:"timeoutSec"`
+	Detail             *string  `json:"detail"`
+	DisableThinking    *bool    `json:"disableThinking"`
+	AnalyzeFrames      *int     `json:"analyzeFrames"`
+	AnalyzeIntervalSec *int     `json:"analyzeIntervalSec"`
+	MinConfidence      *float64 `json:"minConfidence"`
+	FailureStreak      *int     `json:"failureStreak"`
+	CooldownSeconds    *int     `json:"cooldownSeconds"`
 
 	WebhookEnabled *bool   `json:"webhookEnabled"`
 	WebhookURL     *string `json:"webhookUrl"`
@@ -88,25 +90,26 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 		AIEnabled:   s.pc != nil && s.pc.Enabled(),
 		Others:      s.othersRaw(),
 		Vision: visionView{
-			Enabled:         vc.Enabled,
-			Provider:        vc.Provider,
-			BaseURL:         vc.BaseURL,
-			Model:           vc.Model,
-			APIKeySet:       vc.APIKey != "",
-			TimeoutSec:      int(vc.Timeout / time.Second),
-			Detail:          vc.Detail,
-			DisableThinking: vc.DisableThinking,
-			AnalyzeFrames:   vc.AnalyzeFrames,
-			MinConfidence:   vc.MinConfidence,
-			FailureStreak:   vc.FailureStreak,
-			CooldownSeconds: vc.CooldownSeconds,
-			WebhookEnabled:  vc.Webhook.Enabled,
-			WebhookURL:      vc.Webhook.URL,
-			BarkEnabled:     vc.Bark.Enabled,
-			BarkKeySet:      vc.Bark.Key != "",
-			BarkGroup:       vc.Bark.Group,
-			BarkLevel:       vc.Bark.Level,
-			BarkBaseURL:     vc.Bark.BaseURL,
+			Enabled:            vc.Enabled,
+			Provider:           vc.Provider,
+			BaseURL:            vc.BaseURL,
+			Model:              vc.Model,
+			APIKeySet:          vc.APIKey != "",
+			TimeoutSec:         int(vc.Timeout / time.Second),
+			Detail:             vc.Detail,
+			DisableThinking:    vc.DisableThinking,
+			AnalyzeFrames:      vc.AnalyzeFrames,
+			AnalyzeIntervalSec: vc.AnalyzeIntervalSeconds,
+			MinConfidence:      vc.MinConfidence,
+			FailureStreak:      vc.FailureStreak,
+			CooldownSeconds:    vc.CooldownSeconds,
+			WebhookEnabled:     vc.Webhook.Enabled,
+			WebhookURL:         vc.Webhook.URL,
+			BarkEnabled:        vc.Bark.Enabled,
+			BarkKeySet:         vc.Bark.Key != "",
+			BarkGroup:          vc.Bark.Group,
+			BarkLevel:          vc.Bark.Level,
+			BarkBaseURL:        vc.Bark.BaseURL,
 		},
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -212,6 +215,9 @@ func (s *Server) applyConfigInput(in configInput) error {
 		if v.AnalyzeFrames != nil && *v.AnalyzeFrames > 0 {
 			vc.AnalyzeFrames = *v.AnalyzeFrames
 		}
+		if v.AnalyzeIntervalSec != nil && *v.AnalyzeIntervalSec >= 0 {
+			vc.AnalyzeIntervalSeconds = *v.AnalyzeIntervalSec
+		}
 		if v.MinConfidence != nil && *v.MinConfidence > 0 {
 			vc.MinConfidence = *v.MinConfidence
 		}
@@ -291,20 +297,21 @@ func storedKeys(raw []byte) storedKeysT {
 
 // visionYAML 用于把 vision 配置写成可读的 YAML（timeout 用 "30s" 形式，而非纳秒数字）。
 type visionYAML struct {
-	Enabled         bool        `yaml:"enabled"`
-	Provider        string      `yaml:"provider"`
-	BaseURL         string      `yaml:"baseUrl"`
-	APIKey          string      `yaml:"apiKey"`
-	Model           string      `yaml:"model"`
-	Timeout         string      `yaml:"timeout"`
-	Detail          string      `yaml:"detail"`
-	DisableThinking bool        `yaml:"disableThinking"`
-	AnalyzeFrames   int         `yaml:"analyzeFrames"`
-	MinConfidence   float64     `yaml:"minConfidence"`
-	FailureStreak   int         `yaml:"failureStreak"`
-	CooldownSeconds int         `yaml:"cooldownSeconds"`
-	Webhook         webhookYAML `yaml:"webhook"`
-	Bark            barkYAML    `yaml:"bark"`
+	Enabled                bool        `yaml:"enabled"`
+	Provider               string      `yaml:"provider"`
+	BaseURL                string      `yaml:"baseUrl"`
+	APIKey                 string      `yaml:"apiKey"`
+	Model                  string      `yaml:"model"`
+	Timeout                string      `yaml:"timeout"`
+	Detail                 string      `yaml:"detail"`
+	DisableThinking        bool        `yaml:"disableThinking"`
+	AnalyzeFrames          int         `yaml:"analyzeFrames"`
+	AnalyzeIntervalSeconds int         `yaml:"analyzeIntervalSeconds"`
+	MinConfidence          float64     `yaml:"minConfidence"`
+	FailureStreak          int         `yaml:"failureStreak"`
+	CooldownSeconds        int         `yaml:"cooldownSeconds"`
+	Webhook                webhookYAML `yaml:"webhook"`
+	Bark                   barkYAML    `yaml:"bark"`
 }
 
 type webhookYAML struct {
@@ -326,19 +333,20 @@ func marshalVision(vc config.VisionConfig) (string, error) {
 		sec = 30
 	}
 	v := visionYAML{
-		Enabled:         vc.Enabled,
-		Provider:        vc.Provider,
-		BaseURL:         vc.BaseURL,
-		APIKey:          vc.APIKey,
-		Model:           vc.Model,
-		Timeout:         fmt.Sprintf("%ds", sec),
-		Detail:          vc.Detail,
-		DisableThinking: vc.DisableThinking,
-		AnalyzeFrames:   vc.AnalyzeFrames,
-		MinConfidence:   vc.MinConfidence,
-		FailureStreak:   vc.FailureStreak,
-		CooldownSeconds: vc.CooldownSeconds,
-		Webhook:         webhookYAML{Enabled: vc.Webhook.Enabled, URL: vc.Webhook.URL},
+		Enabled:                vc.Enabled,
+		Provider:               vc.Provider,
+		BaseURL:                vc.BaseURL,
+		APIKey:                 vc.APIKey,
+		Model:                  vc.Model,
+		Timeout:                fmt.Sprintf("%ds", sec),
+		Detail:                 vc.Detail,
+		DisableThinking:        vc.DisableThinking,
+		AnalyzeFrames:          vc.AnalyzeFrames,
+		AnalyzeIntervalSeconds: vc.AnalyzeIntervalSeconds,
+		MinConfidence:          vc.MinConfidence,
+		FailureStreak:          vc.FailureStreak,
+		CooldownSeconds:        vc.CooldownSeconds,
+		Webhook:                webhookYAML{Enabled: vc.Webhook.Enabled, URL: vc.Webhook.URL},
 		Bark: barkYAML{
 			Enabled: vc.Bark.Enabled, Key: vc.Bark.Key, Group: vc.Bark.Group,
 			Level: vc.Bark.Level, BaseURL: vc.Bark.BaseURL,

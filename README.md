@@ -96,6 +96,8 @@ go test ./...
 **核心思路：不需要每几秒让 AI 盯一次。** 由 Home Assistant 在“每一层打完”时调一次截图接口，
 LapseCam 把该打印任务**最近 N 张（默认 5 张 = 最近 5 层）帧一次性打包发给视觉模型**，
 让模型对比这几张图给出整体结论——打印件有没有被拖走、丝有没有乱掉，前后对比比单张更准。
+如果层打得很快（比如 5s 一层），可用 `analyzeIntervalSeconds` 限流：截图照常存，但 AI 分析
+最多每 N 秒一次，避免请求过密（默认 30s，`0` 表示每次截图都分析）。
 
 ```
 HA：检测到打印层变化
@@ -164,6 +166,7 @@ vision:
   disableThinking: true    # 默认关思考（千问/阿里云生效）
 
   analyzeFrames: 5            # 每次把最近几张（层）发给模型，按你的打印节奏调
+  analyzeIntervalSeconds: 30  # 两次 AI 分析的最小间隔（秒）：层太快时防频繁请求；0=不限
   minConfidence: 0.8          # AI 判异常所需最低置信度
   failureStreak: 3            # 连续 N 次判异常才告警（防误报，可调低到 2 求快）
   cooldownSeconds: 300        # 同一故障重复告警冷却

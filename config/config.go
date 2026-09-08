@@ -107,12 +107,13 @@ type VisionConfig struct {
 	Detail          string        `yaml:"detail"`          // 图片细节 low/high/original/auto，空=不传（默认 original）
 	DisableThinking bool          `yaml:"disableThinking"` // 关闭思考模式（qwen3 等默认开 thinking，又慢又贵；仅对千问/阿里云生效）
 
-	AnalyzeFrames   int           `yaml:"analyzeFrames"`   // 每次分析取最近多少张帧（按时间/层数由你调）
-	MinConfidence   float64       `yaml:"minConfidence"`   // AI 判异常所需的最低置信度
-	FailureStreak   int           `yaml:"failureStreak"`   // 连续 N 次分析判异常才告警（防单次误报）
-	CooldownSeconds int           `yaml:"cooldownSeconds"` // 同一打印任务重复告警冷却（秒）
-	Webhook         WebhookConfig `yaml:"webhook"`         // 告警回调（Home Assistant 等）
-	Bark            BarkConfig    `yaml:"bark"`            // Bark 推送（iOS 通知，可选）
+	AnalyzeFrames          int           `yaml:"analyzeFrames"`          // 每次分析取最近多少张帧（按时间/层数由你调）
+	AnalyzeIntervalSeconds int           `yaml:"analyzeIntervalSeconds"` // 两次 AI 分析的最小间隔（秒）：层太快时防止频繁请求，0=不限制
+	MinConfidence          float64       `yaml:"minConfidence"`          // AI 判异常所需的最低置信度
+	FailureStreak          int           `yaml:"failureStreak"`          // 连续 N 次分析判异常才告警（防单次误报）
+	CooldownSeconds        int           `yaml:"cooldownSeconds"`        // 同一打印任务重复告警冷却（秒）
+	Webhook                WebhookConfig `yaml:"webhook"`                // 告警回调（Home Assistant 等）
+	Bark                   BarkConfig    `yaml:"bark"`                   // Bark 推送（iOS 通知，可选）
 }
 
 // BarkConfig Bark 推送（https://bark.day.app）。只发文字，不带图片。
@@ -190,18 +191,19 @@ func Default() *Config {
 			RemoveOrphans:           true,
 		},
 		Vision: VisionConfig{
-			Enabled:         false,
-			Provider:        "deepseek",
-			BaseURL:         "https://api.deepseek.com/v1",
-			Model:           "deepseek-v4-flash-vision-exp",
-			Timeout:         180 * time.Second,
-			DisableThinking: true,
-			AnalyzeFrames:   5,
-			MinConfidence:   0.8,
-			FailureStreak:   3,
-			CooldownSeconds: 300,
-			Webhook:         WebhookConfig{Enabled: false},
-			Bark:            BarkConfig{Enabled: false, BaseURL: "https://api.day.app"},
+			Enabled:                false,
+			Provider:               "deepseek",
+			BaseURL:                "https://api.deepseek.com/v1",
+			Model:                  "deepseek-v4-flash-vision-exp",
+			Timeout:                180 * time.Second,
+			DisableThinking:        true,
+			AnalyzeFrames:          5,
+			AnalyzeIntervalSeconds: 30,
+			MinConfidence:          0.8,
+			FailureStreak:          3,
+			CooldownSeconds:        300,
+			Webhook:                WebhookConfig{Enabled: false},
+			Bark:                   BarkConfig{Enabled: false, BaseURL: "https://api.day.app"},
 		},
 	}
 }
@@ -322,6 +324,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Vision.AnalyzeFrames <= 0 {
 		c.Vision.AnalyzeFrames = d.Vision.AnalyzeFrames
+	}
+	if c.Vision.AnalyzeIntervalSeconds < 0 {
+		c.Vision.AnalyzeIntervalSeconds = d.Vision.AnalyzeIntervalSeconds
 	}
 	if c.Vision.MinConfidence <= 0 {
 		c.Vision.MinConfidence = d.Vision.MinConfidence

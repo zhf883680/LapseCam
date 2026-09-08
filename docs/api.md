@@ -213,6 +213,7 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `vision.detail` | 图片细节 `low/high/original/auto`，空=不传 |
 | `vision.disableThinking` | 关闭思考模式，默认 `true`（仅对千问/阿里云端点发 `enable_thinking:false`） |
 | `vision.analyzeFrames` | 每次分析取最近几张帧，默认 `5` |
+| `vision.analyzeIntervalSeconds` | 两次 AI 分析最小间隔（秒），默认 `30`，`0`=每次截图都分析 |
 | `vision.minConfidence` | AI 判异常最低置信度，默认 `0.8` |
 | `vision.failureStreak` | 连续 N 次判异常才告警，默认 `3` |
 | `vision.cooldownSeconds` | 同一任务重复告警冷却（秒），默认 `300` |
