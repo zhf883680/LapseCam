@@ -1,46 +1,27 @@
-# LapseCam · 让摄像头替你拍延时摄影
+# LapseCam · 让摄像头替你拍延时，也替你盯着 3D 打印
 
-> LapseCam 最初就是为了搭配 **Home Assistant** 给 **拓竹（Bambu Lab）3D 打印机** 做自动延时摄影而生的：
-> 打印开始 → 自动开始录制，打印结束/暂停 → 自动停录出片，整场打印浓缩成一段视频。
-> 同一套服务也覆盖日常延时摄影：日出日落、云海、植物生长、施工记录……添加摄像头、设好间隔，剩下的交给它。
+> 一个 Go + FFmpeg 的轻量服务：添加任意 RTSP 摄像头 → 定时抽帧 → 自动合成 H.264 MP4。
+> 除了延时摄影，它还内置了 **AI 打印监控**：配合 Home Assistant，在拓竹（Bambu Lab）等打印机
+> 逐层截图，把最近几层画面交给视觉模型判断，炒面 / 堵头 / 打印件被拖走时，第一时间 Bark / Webhook 叫醒你。
 
-Go + FFmpeg 构建的轻量延时摄影服务：添加 RTSP 摄像头 → 定时抽帧 → 自动合成 H.264 MP4。单二进制 + SQLite，Docker 或 Armbian 小盒子都能跑。
+单二进制 + SQLite，Docker 或 Armbian 小盒子都能跑。
+
+---
 
 ## ✨ 功能亮点
 
-- **为 Home Assistant 而生**：两个固定 URL 的快捷录制接口，自动化里写死即可，无需管理任务 ID，重复调用幂等安全
-- **拓竹打印机自动延时**：打印开始即录、结束即停，自动出片回放整场打印过程
-- **日常延时摄影**：秒级抽帧间隔、可设开始/结束时间，到点自动拍、结束自动出片；也能让 HA 按日出日落每天自动生成一条当日延时
-- **任意 RTSP 摄像头**：只填 RTSP 地址即可接入，无需 ONVIF；Web 后台一键测试连接（返回分辨率/编码/帧率）
-- **Web 实时预览**：摄像头列表一键预览，go2rtc 把 RTSP 实时转成浏览器可播的 MSE（延迟约 1~2 秒），按需拉流、断开自动释放
-- **断线不丢帧**：RTSP 断线自动重连（5s→10s→30s→60s 退避，可配置），重连后帧号自动接续，已拍帧完整保留
-- **重启自恢复**：服务/容器重启后，running 任务继续抽帧，stopping 任务完成编码收尾
+- 🛰️ **AI 打印监控（Vision Monitor）**：逐层截图后自动把最近 N 张帧发给 OpenAI 兼容视觉模型（默认 DeepSeek），识别炒面 / 堵头 / 打印件被拖走 / 积料 / 喷嘴碰撞；连续多次判异常才告警（防误报），支持 Bark（可自建服务）+ Webhook 通知
+- **为 Home Assistant 而生**：固定 URL 的快捷录制接口，自动化里写死即可，重复调用幂等；打印开始即录、结束/暂停即停并出片
+- **拓竹 A1 逐层截图**：床滑式打印机专用，`layer`（每层抓一帧）/ `timestamp`（记录层时刻选帧）两种按层模式，成片不再左右横跳
+- **日常延时摄影**：秒级抽帧、可设开始/结束时间，到点自动拍、结束自动出片；也能让 HA 按日出日落每天自动生成一条当日延时
+- **任意 RTSP 摄像头**：只填 RTSP 地址即可接入；Web 后台一键测试连接（分辨率/编码/帧率）
+- **Web 实时预览**：go2rtc 把 RTSP 实时转成浏览器可播的 MSE（延迟约 1~2 秒），按需拉流、断开自动释放
+- **断线不丢帧 / 重启自恢复**：RTSP 断线自动重连（5s→10s→30s→60s 退避），已拍帧完整保留；重启后 running 任务继续抽帧、stopping 任务完成编码收尾
 - **自动出片**：抽帧与成片解耦，任务结束自动用 x264 压成 H.264 MP4，浏览器直接播放/下载
-- **Web 管理后台**：单文件内嵌，摄像头/任务/视频三个面板，实时进度
-- **数据清理**：出片后自动删中间帧，一键/定时清理旧视频与无主残留，磁盘不爆
-- **AI 打印健康分析**：逐层截图（layer 模式）截完一层图后，自动把最近 N 张帧一起发给 OpenAI 兼容视觉模型（默认 DeepSeek）判断炒面/堵头/打印件被拖走，连续判异常才 Webhook 报警
+- **数据清理**：出片后自动删中间帧，一键/定时清理旧视频与无主残留
 - **轻量易部署**：Docker 一键起，或 Armbian（树莓派/电视盒子）一键装成 systemd 服务
 
-## 🎬 典型使用场景
-
-### 🖨️ 拓竹（Bambu Lab）打印机自动延时
-
-项目的最初目标场景。Home Assistant 联动打印机状态：打印开始 → LapseCam 开始延时录制；打印结束/暂停 → 自动停录并合成 MP4。不用盯屏幕，打完后直接回放整场打印。
-
-### 🌅 日常延时摄影
-
-日出日落、云海流动、植物生长、装修施工、城市车流……在 Web 后台新建一个任务即可：选摄像头、设抽帧间隔和开始/结束时间，到点自动拍、结束自动出片。
-
-时长换算参考：
-
-```
-10 小时 × 3600 ÷ 10 秒/帧 = 3600 帧
-3600 帧 ÷ 30 FPS = 120 秒成片
-```
-
-### 🏠 家庭摄像头随手录
-
-连接家里任意 RTSP 摄像头（NVR / IPC），随时手动录一段、快速出片，浏览器直接回放。
+---
 
 ## 🚀 快速开始
 
@@ -61,24 +42,10 @@ docker run -d --name lapsecam \
 docker compose up -d
 ```
 
-- 镜像支持多架构：`amd64` / `arm64` / `arm/v7`，Docker 会自动按机器架构拉取
-- 视频/帧/数据库持久化在 named volume `lapsecam-data`；用 compose 时持久化在宿主机 `./data`
-- 默认使用镜像内置配置；如需改配置，可挂载含 `config.yaml` 的目录到 `/app/config`
+- 镜像支持多架构：`amd64` / `arm64` / `arm/v7`，Docker 自动按机器架构拉取
+- 数据持久化在 named volume `lapsecam-data`（compose 时在宿主机 `./data`）
+- 默认使用镜像内置配置；如需改配置，把含 `config.yaml` 的目录挂到 `/app/config`
 - Web 后台：`http://<IP>:8080`；健康检查：`GET /api/health`
-
-### 数据目录（`/app/data`）说明
-
-`/app/data` **不用提前创建、也完全可以是空的**，服务第一次启动时会自动初始化。运行后里面会自动生成：
-
-- `database.db`：SQLite 数据库，存摄像头、任务、视频记录
-- `frames/task-{id}/`：抽帧的中间图片（合成视频用）
-- `videos/task-{id}/`：最终合成的 MP4 成片
-- `logs/task-{id}.log`：每个任务的抽帧/编码日志
-- `lapsecam.log`：服务主日志
-
-> 出片成功（completed）后，中间帧与层标记会被自动清理（可配置 `cleanup.removeFramesAfterEncode`）；按天保留旧视频、清理无主残留可配置 `cleanup` 段。
-
-挂载它只是为了**持久化**：容器删掉、重建后，任务记录和成片都还在。如果只是临时试用，也**可以不挂载**，容器删除后数据会一起丢失。
 
 ### 方式二：ARM 设备（Armbian，树莓派/电视盒子）
 
@@ -86,27 +53,32 @@ docker compose up -d
 sudo bash deploy/install.sh
 ```
 
-自动检测 arm64/arm 架构、自动安装 ffmpeg、注册为 systemd 服务。装完访问 `http://<设备IP>:19090`，查看日志 `journalctl -u lapsecam -f`。生产配置在 `config/config.arm.yaml`（编码预设 `veryfast`，适配 ARM 弱 CPU）。
+自动检测 arm64/arm 架构、安装 ffmpeg、注册为 systemd 服务。装完访问 `http://<设备IP>:19090`，日志 `journalctl -u lapsecam -f`。生产配置见 `config/config.arm.yaml`（预设适配 ARM 弱 CPU）。
+
+### 数据目录（`/app/data`）
+
+首次启动自动初始化，无需手动创建。运行后生成：
+
+- `database.db`：SQLite（摄像头、任务、视频、AI 分析记录）
+- `frames/task-{id}/`：抽帧中间图
+- `videos/task-{id}/`：成片 MP4
+- `vision/task-{id}/events/`：AI 判异常时留存的现场图
+- `logs/task-{id}.log`、`lapsecam.log`：任务日志与服务主日志
+
+> 出片成功后中间帧自动清理（`cleanup.removeFramesAfterEncode`）；旧视频/孤儿数据按 `cleanup` 段定时清理。
+> 挂载数据目录只是为了持久化：容器删掉重建后记录和成片都还在。
 
 ### 发布与 Docker 镜像（GitHub Actions）
 
-推一个 `v*` 标签即可触发自动发布（`.github/workflows/release.yml`）：
+推 `v*` 标签自动发布（`.github/workflows/release.yml`）：
 
 ```bash
 git tag v1.2.3
 git push origin v1.2.3
 ```
 
-> 首次发布前需先添加一个密钥，否则 Docker 推送会失败：
-> 仓库 **Settings → Secrets and variables → Actions → New repository secret**，新增
-> `DOCKERHUB_TOKEN`，值为 Docker Hub 的访问令牌（Account Settings → Security → Access Tokens，权限选 Read/Write/Delete）。
-
-GitHub Actions 会自动：
-
-1. 交叉编译 Linux 静态二进制：`amd64` / `arm64` / `armv7`，作为附件上传到 Release；
-2. 构建并推送多架构 Docker 镜像到 **Docker Hub**。
-
-Docker Hub 镜像：`zhf883680/lapsecam:latest`（多架构：`amd64` / `arm64` / `arm/v7`），直接用法见上方「方式一：Docker」。
+自动完成：交叉编译 Linux 静态二进制（`amd64`/`arm64`/`armv7`，作为 Release 附件）→ 构建并推送多架构 Docker 镜像到 Docker Hub（`zhf883680/lapsecam`）。
+> 首次需在仓库 **Settings → Secrets and variables → Actions** 添加 `DOCKERHUB_TOKEN`（Docker Hub Access Token，权限 Read/Write/Delete）。
 
 ### 本地开发
 
@@ -117,20 +89,158 @@ go run ./cmd/server
 go test ./...
 ```
 
+---
+
+## 🛰️ AI 打印监控（Vision Monitor）
+
+**核心思路：不需要每几秒让 AI 盯一次。** 由 Home Assistant 在“每一层打完”时调一次截图接口，
+LapseCam 把该打印任务**最近 N 张（默认 5 张 = 最近 5 层）帧一次性打包发给视觉模型**，
+让模型对比这几张图给出整体结论——打印件有没有被拖走、丝有没有乱掉，前后对比比单张更准。
+
+```
+HA：检测到打印层变化
+   │  POST /api/quick/snapshot?layer=N   （每层一帧，同层自动去重）
+   ▼
+ffmpeg 抓一帧 → 存入本次打印的帧序列
+   │
+   ▼（后台自动，不阻塞截图响应）
+取最近 vision.analyzeFrames 张帧 → 一次性发给 OpenAI 兼容视觉模型（默认 DeepSeek）
+   │
+   ▼
+normal / spaghetti(炒面) / clog(堵头) / object_displaced(被拖走)
+       / nozzle_collision(撞件) / material_buildup(积料) / unknown
+   │
+   ▼ 规则判定（防误报）
+异常 = AI 状态属于异常集合 且 置信度 ≥ minConfidence(0.8)
+连续 failureStreak(2) 次判异常 → 确认故障（同一故障带冷却，不轰炸）
+   │
+   ├── 📲 Bark 推送（支持自建 Bark 服务，当前文字通知）
+   └── 🔔 Webhook → Home Assistant → 暂停打印机 / 手机通知
+```
+
+### 能检测什么
+
+| 状态 | 含义 | 摄像头好不好判断 |
+| --- | --- | --- |
+| `normal` | 正常 | — |
+| `spaghetti` | 炒面：挤出丝乱成一团不再成型 | ⭐ 很容易 |
+| `material_buildup` | 喷嘴周围明显积料 | ⭐⭐ |
+| `object_displaced` | **打印件/支撑脱离原位、被喷嘴拖着跑** | ⭐⭐（多图对比很有效） |
+| `clog` | 堵头：喷嘴堵塞/严重积料不再出料 | ⭐⭐⭐⭐⭐（很难，只能当参考） |
+| `nozzle_collision` | 喷嘴撞到打印件/异物 | ⭐⭐⭐ |
+| `unknown` | 看不清/无法判断 | — |
+
+> 你最关心的“打印机拖着一个东西跑，最后堵头”：早期信号其实是 `object_displaced` / 画面剧变，
+> 把最近几层一起发给模型，让它对比物体位置，比单看一帧可靠得多。
+
+### 开启步骤
+
+前提：摄像头已接入 LapseCam；打印机使用**逐层截图**流程（见下方 HA 集成 2.5，需切片器开启
+Smooth Timelapse）。然后：
+
+**1) 配 AI Key（OpenAI 兼容，默认 DeepSeek）**
+
+Docker 场景推荐环境变量（避免进配置文件）：
+
+```bash
+# docker-compose.yml 同目录的 .env
+VISION_API_KEY=sk-xxxx
+```
+
+或直接写配置 `vision.apiKey`。
+
+**2) 打开配置 `config.yaml`**
+
+```yaml
+quick:
+  captureMode: "layer"        # 逐层截图模式：帧全部由 /api/quick/snapshot 提供
+
+vision:
+  enabled: true               # 打开 AI 分析
+  provider: "deepseek"        # 通用 OpenAI 兼容：改 baseUrl+model+apiKey 即可换 OpenAI/OpenRouter…
+  baseUrl: "https://api.deepseek.com/v1"
+  model: "deepseek-v4-flash-vision-exp"
+  timeout: 30s
+
+  analyzeFrames: 5            # 每次把最近几张（层）发给模型，按你的打印节奏调
+  minConfidence: 0.8          # AI 判异常所需最低置信度
+  failureStreak: 2            # 连续 N 次判异常才告警（防单张误报）
+  cooldownSeconds: 300        # 同一故障重复告警冷却
+
+  bark:                       # 通知方式一（可选）：Bark iOS 推送
+    enabled: true
+    key: "你的Bark设备key"     # 自建 Bark 就用你服务器里注册的 key
+    baseUrl: "https://api.day.app"   # ← 自建 Bark 填你自己的地址，如 http://192.168.1.10:8080
+    group: "LapseCam"
+    level: "timeSensitive"    # active / timeSensitive / critical
+
+  webhook:                    # 通知方式二（可选）：Webhook（HA 等）
+    enabled: true
+    url: "http://homeassistant:8123/api/webhook/lapsecam-print"
+```
+
+**3) 重启服务**，然后正常按层截图即可。每截一层图 → 自动分析一次。
+
+### 看结果 / 调试
+
+```bash
+curl http://<IP>:19090/api/quick/check                     # 本次打印最近一次分析
+curl "http://<IP>:19090/api/quick/checks?limit=10"         # 分析历史
+curl http://<IP>:19090/api/quick/checks/23/image           # 某次告警现场图
+journalctl -u lapsecam | grep -i printcheck                # 分析/推送日志
+```
+
+### 通知说明
+
+- **Bark**：确认故障时推一条文字通知（标题如「3D 打印异常：炒面」，正文为 AI reason + 置信度）。
+  当前版本不带图片；`baseUrl` 支持自建 Bark 服务。Bark 用法见 <https://bark.day.app/#/tutorial>。
+- **Webhook**：确认故障时 POST JSON：
+
+```json
+{
+  "taskId": 12,
+  "status": "spaghetti",
+  "confidence": 0.94,
+  "reason": "模型顶部出现大量无规则挤出丝，明显偏离正常打印结构",
+  "image": "/api/quick/checks/23/image",
+  "timestamp": "2026-09-08T17:00:15+08:00"
+}
+```
+
+HA 收到后暂停/通知：
+
+```yaml
+automation:
+  - alias: "打印异常 → 通知并暂停"
+    trigger:
+      - platform: webhook
+        webhook_id: lapsecam-print
+    action:
+      - service: notify.mobile_app_phone
+        data:
+          title: "3D 打印可能失败了"
+          message: "{{ trigger.json.reason }}"
+```
+
+> 提示：模型走 OpenAI 兼容接口，`vision.baseUrl`/`model`/`apiKey` 可指向 OpenAI、DeepSeek、
+> OpenRouter 或自建兼容服务。DeepSeek 视觉说明见
+> <https://api-docs.deepseek.com/zh-cn/guides/vision>。
+
+---
+
 ## 🤖 Home Assistant 集成
 
-LapseCam 提供两个专门给 HA 等外部自动化调用的“快捷录制”接口：
+LapseCam 给 HA 的接口都是固定 URL、幂等，适合写死在自动化里：
 
 ```
-POST /api/quick/start   # 开始录制（使用第一台摄像头）
-POST /api/quick/stop    # 停止录制并自动出片
+POST /api/quick/start             # 开始快捷录制（第一台摄像头）
+POST /api/quick/stop              # 停止并出片
+POST /api/quick/snapshot?layer=N  # 逐层截图（captureMode=layer）
+POST /api/quick/layer?layer=N     # 记录层时刻（captureMode=timestamp）
+GET  /api/quick/check             # AI 打印监控最近一次结果
 ```
-
-URL 固定、无需管理任务 ID、重复调用幂等：已在录制时 start 返回“已在录制”，没有录制时 stop 返回“当前没有录制”。
 
 ### 1. 定义 REST 命令
-
-在 HA 的 `configuration.yaml` 中：
 
 ```yaml
 rest_command:
@@ -140,11 +250,15 @@ rest_command:
   lapsecam_quick_stop:
     url: "http://<LapseCam IP>:19090/api/quick/stop"
     method: POST
+  lapsecam_quick_snapshot:
+    url: "http://<LapseCam IP>:19090/api/quick/snapshot?layer={{ layer }}"
+    method: POST
+  lapsecam_quick_layer:
+    url: "http://<LapseCam IP>:19090/api/quick/layer?layer={{ layer }}"
+    method: POST
 ```
 
-### 2. 示例：拓竹打印机自动录制
-
-（实体与状态名以你 HA 里实际的打印机设备为准）
+### 2. 拓竹打印机自动录制（定时抽帧版）
 
 ```yaml
 automation:
@@ -170,35 +284,17 @@ automation:
       - service: rest_command.lapsecam_quick_stop
 ```
 
-打印结束时 LapseCam 自动把本次打印的所有帧合成 MP4，随时在 Web 后台回放或下载。暂停即出片；恢复打印时再触发一次 start 会另起一段录制。
+打印结束 LapseCam 自动合成 MP4；暂停即出片，恢复打印再 start 会另起一段。
 
-### 2.5 拓竹 A1 逐层截图（床滑式专用）
+### 2.5 拓竹 A1 逐层截图（床滑式专用 + AI 监控入口）
 
-A1 是床滑式，普通定时抽帧每帧床的 Y 位置随机，成片会左右横跳。测试版提供两种「按层」模式
-（`quick.captureMode`），都要求切片器开启**平滑延时摄影**（Smooth Timelapse），让每层结束工具头
-在 poop 位停车数秒、床停在固定 Y 位置：
+A1 是床滑式，定时抽帧每帧床 Y 位置随机，成片会左右横跳。两种「按层」模式（`quick.captureMode`），
+都要求切片器开启**平滑延时摄影**（Smooth Timelapse），让每层结束工具头在 poop 位停车数秒：
 
-- `layer`：不自动抽帧，每层结束时由 HA 调 `/api/quick/snapshot?layer=N` 抓一帧（同层自动去重）
+- `layer`：不自动抽帧，每层结束时 HA 调 `/api/quick/snapshot?layer=N` 抓一帧（同层自动去重）。
+  **这也是 AI 打印监控的触发入口**：截完一帧自动分析最近 N 张。
 - `timestamp`：连续抽帧 + 每层变化时调 `/api/quick/layer?layer=N` 记录时刻，出片时挑最接近每层的帧
-  （对触发时机不敏感，`layerOffsetSeconds` 补偿上报与停车的偏差，可负，需实测校准）
-
-REST 命令与自动化示例：
-
-```yaml
-rest_command:
-  lapsecam_quick_start:
-    url: "http://<LapseCam IP>:19090/api/quick/start"
-    method: POST
-  lapsecam_quick_stop:
-    url: "http://<LapseCam IP>:19090/api/quick/stop"
-    method: POST
-  lapsecam_quick_snapshot:
-    url: "http://<LapseCam IP>:19090/api/quick/snapshot?layer={{ layer }}"
-    method: POST
-  lapsecam_quick_layer:
-    url: "http://<LapseCam IP>:19090/api/quick/layer?layer={{ layer }}"
-    method: POST
-```
+  （对触发时机不敏感；`layerOffsetSeconds` 补偿上报与停车偏差，可负，需实测校准）
 
 ```yaml
 automation:
@@ -249,79 +345,10 @@ automation:
       - service: rest_command.lapsecam_quick_stop
 ```
 
-> `layer` 模式要求配置 `quick.captureMode: "layer"`，`timestamp` 模式要求 `"timestamp"`；
-> 两种模式的接口与参数说明见 [API 与配置参考](docs/api.md)。
+> `layer` 模式配 `quick.captureMode: "layer"`，`timestamp` 配 `"timestamp"`。
+> AI 告警通知配置见上文「🛰️ AI 打印监控」。
 
-
-
-### 2.6 AI 打印健康分析（每层截图后自动判断，可选）
-
-配合上面的 `layer` 逐层截图模式：**每次 HA 调 `/api/quick/snapshot` 截完一层图后，LapseCam 自动把
-该打印任务最近 `vision.analyzeFrames` 张帧（默认 5 张 = 最近 5 层）打包发给视觉模型判断一次**，
-不用自己每几秒盯一次，也不用另外调接口。连续 `vision.failureStreak` 次（默认 2）判异常才会
-通过 Webhook 报警，避免单次误报；告警现场图自动留存，随时能看「AI 为什么这么判断」。
-
-开启步骤：
-
-1. 配置 `quick.captureMode: "layer"`（上一节）
-2. 设置 API Key（推荐用环境变量，避免密钥进配置文件）：
-   - Docker：在 `docker-compose.yml` 同目录的 `.env` 写 `VISION_API_KEY=sk-xxxx`
-   - 或直接填 `config/config.yaml` 的 `vision.apiKey`
-3. 打开 `config/config.yaml`：
-
-   ```yaml
-   vision:
-     enabled: true          # 打开 AI 分析
-     analyzeFrames: 5       # 每次取最近几张（层）发给模型，按你的打印节奏调
-     webhook:               # 方式一：Webhook（HA 等）
-       enabled: true
-       url: "http://homeassistant:8123/api/webhook/lapsecam-print"
-     bark:                  # 方式二（可选）：Bark iOS 推送，只发文字
-       enabled: true
-       key: "你的 Bark 设备 key"
-       group: "LapseCam"
-   ```
-
-4. 重启 LapseCam。之后每截一层图会自动分析；告警会推 Bark / Webhook。
-   想看结果（HA 做传感器/自动化判断）：
-   ```bash
-   curl http://<LapseCam IP>:19090/api/quick/check    # 最近一次分析结果
-   curl "http://<LapseCam IP>:19090/api/quick/checks?limit=10"   # 历史
-   ```
-
-模型按 OpenAI 兼容接口调用：`vision.baseUrl` 默认 DeepSeek（`https://api.deepseek.com/v1`），
-换成 OpenAI / OpenRouter / 自建兼容服务只需改 `baseUrl` + `model` + `apiKey`。
-DeepSeek 视觉模型参考 <https://api-docs.deepseek.com/zh-cn/guides/vision>。
-
-告警 Webhook 载荷（POST JSON，HA 用 `webhook` automation 接住即可）：
-
-```json
-{
-  "taskId": 12,
-  "status": "spaghetti",
-  "confidence": 0.94,
-  "reason": "模型顶部出现大量无规则挤出丝，明显偏离正常打印结构",
-  "image": "/api/quick/checks/23/image",
-  "timestamp": "2026-09-08T09:00:15+08:00"
-}
-```
-
-HA 收到告警后暂停/通知示例：
-
-```yaml
-automation:
-  - alias: "打印异常 → 通知并暂停"
-    trigger:
-      - platform: webhook
-        webhook_id: lapsecam-print
-    action:
-      - service: notify.mobile_app_phone
-        data:
-          title: "3D 打印可能失败了"
-          message: "{{ trigger.json.reason }}"
-```
-
-### 3. 示例：每天日出到日落自动延时
+### 3. 每天日出到日落自动延时
 
 ```yaml
 automation:
@@ -340,17 +367,24 @@ automation:
       - service: rest_command.lapsecam_quick_stop
 ```
 
-> 快捷录制参数（间隔/FPS/分辨率/任务名）由配置 `quick` 段控制，默认 5 秒/30FPS/1280×720。完整接口与配置说明见 [API 与配置参考](docs/api.md)。
+> 快捷录制参数（间隔/FPS/分辨率/任务名/抽帧模式）由 `quick` 段控制。完整接口与配置见
+> [API 与配置参考](docs/api.md)。
+
+---
 
 ## 🖥️ Web 管理后台
 
-浏览器打开 `http://<IP>:<端口>` 即可使用三个面板：
+浏览器打开 `http://<IP>:<端口>`：
 
-- **摄像头**：增删改查、测试连接、**实时预览**、在线/离线状态、启用开关
-- **延时任务**：新建任务（摄像头/间隔/FPS/分辨率/开始与结束时间）、手动开始/停止、实时进度与帧数
+- **摄像头**：增删改查、测试连接、实时预览、在线/离线、启用开关
+- **延时任务**：新建（摄像头/间隔/FPS/分辨率/起止时间）、开始/停止、进度与帧数
 - **视频**：播放/下载 MP4、删除记录
 
-## 🔄 工作原理
+> AI 打印监控目前以 API 为主（`/api/quick/check*`），Web 面板后续版本会补上。
+
+---
+
+## 🔄 延时摄影工作原理
 
 ```
 RTSP ─▶ ffmpeg 抽帧（fps=1/间隔）─▶ data/frames/task-{id}/%06d.jpg
@@ -361,29 +395,30 @@ RTSP ─▶ ffmpeg 抽帧（fps=1/间隔）─▶ data/frames/task-{id}/%06d.jpg
 ```
 
 - 抽帧与成片解耦：RTSP 断线不影响已拍照片，重连后帧号自动接续
-- 断线自动重连，退避序列 `5s → 10s → 30s → 60s`（可配置），连接稳定后重置
-- 容器/服务重启自动恢复：`running` 任务继续抽帧，`stopping` 任务完成编码收尾
+- 断线自动重连，退避 `5s → 10s → 30s → 60s`（可配置）
+- 容器/服务重启自动恢复：`running` 继续抽帧，`stopping` 完成编码收尾
 - 任务状态机：`pending → running → stopping → completed / failed / stopped`
 
 ## 🧊 编码太占 CPU 怎么办
 
-成片压缩用 x264 软件编码，默认 `veryfast`。在弱 CPU（树莓派/电视盒子）上想进一步降低负载，按效果排序：
-
-1. **限制线程数**：`ffmpeg.encodeThreads: 2`（`0`=自动，默认吃满所有核；设 2 后编码变慢但 CPU 明显降下来）
+1. **限线程**：`ffmpeg.encodeThreads: 2`（0=自动吃满所有核）
 2. **更快的预设**：`ffmpeg.encodePreset: "ultrafast"`（比 veryfast 快约一倍，文件略大）
-3. **降低成片分辨率**：任务/快捷录制里把输出从 1080p 降到 720p，像素少 2.25 倍，编码量大幅下降
-4. 实时预览不占用编码线程：预览用 go2rtc 按需拉流，H.264 摄像头通常无需转码
+3. **降分辨率**：1080p → 720p，像素少 2.25 倍
+4. 实时预览按需拉流，不占用编码线程
 
-> 硬件编码（GPU/VPU）在路线图中，后续会支持 macOS `videotoolbox`、ARM `v4l2m2m` 等。
+> 硬件编码（videotoolbox / v4l2m2m）在路线图中。
+
+---
 
 ## 📁 数据目录
 
 ```
 data/
-├── database.db                  # SQLite
-├── frames/task-{id}/%06d.jpg    # 抽帧图片
-├── videos/task-{id}/*.mp4       # 成片
-└── logs/task-{id}.log           # ffmpeg 日志
+├── database.db                     # SQLite（摄像头/任务/视频/AI 分析记录）
+├── frames/task-{id}/%06d.jpg       # 延时抽帧（layer 模式为每层截图）
+├── videos/task-{id}/*.mp4          # 成片
+├── vision/task-{id}/events/        # AI 判异常现场图
+└── logs/                           # ffmpeg / 监控日志
 ```
 
 ## 📄 文档
@@ -392,6 +427,8 @@ data/
 
 ## 🗺️ 路线图（暂未实现）
 
+- AI 打印监控 Web 面板（当前走 API）
+- 告警现场图上传公网图床 / Bark 带图
 - ONVIF 自动发现 / 自动获取 RTSP
 - 时间水印 / 天气信息
 - 硬件编码 / GPU
