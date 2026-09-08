@@ -147,7 +147,7 @@ func TestVisionDefaults(t *testing.T) {
 		t.Error("disableThinking 默认应为 true（默认关思考，仅千问/阿里云生效）")
 	}
 	if cfg.Vision.AnalyzeFrames != 5 || cfg.Vision.MinConfidence != 0.8 ||
-		cfg.Vision.FailureStreak != 2 || cfg.Vision.CooldownSeconds != 300 {
+		cfg.Vision.FailureStreak != 3 || cfg.Vision.CooldownSeconds != 300 {
 		t.Errorf("vision 分析策略默认异常: %+v", cfg.Vision)
 	}
 	if cfg.Vision.Webhook.Enabled {

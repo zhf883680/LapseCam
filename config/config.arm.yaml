@@ -71,7 +71,7 @@ vision:
 
   analyzeFrames: 5
   minConfidence: 0.8
-  failureStreak: 2
+  failureStreak: 3
   cooldownSeconds: 300
   webhook:
     enabled: false

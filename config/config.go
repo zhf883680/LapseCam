@@ -198,7 +198,7 @@ func Default() *Config {
 			DisableThinking: true,
 			AnalyzeFrames:   5,
 			MinConfidence:   0.8,
-			FailureStreak:   2,
+			FailureStreak:   3,
 			CooldownSeconds: 300,
 			Webhook:         WebhookConfig{Enabled: false},
 			Bark:            BarkConfig{Enabled: false, BaseURL: "https://api.day.app"},

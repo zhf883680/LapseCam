@@ -112,7 +112,7 @@ normal / spaghetti(炒面) / clog(堵头) / object_displaced(被拖走)
    │
    ▼ 规则判定（防误报）
 异常 = AI 状态属于异常集合 且 置信度 ≥ minConfidence(0.8)
-连续 failureStreak(2) 次判异常 → 确认故障（同一故障带冷却，不轰炸）
+连续 failureStreak(3) 次判异常 → 确认故障（同一故障带冷却，不轰炸）
    │
    ├── 📲 Bark 推送（支持自建 Bark 服务，当前文字通知）
    └── 🔔 Webhook → Home Assistant → 暂停打印机 / 手机通知
@@ -165,7 +165,7 @@ vision:
 
   analyzeFrames: 5            # 每次把最近几张（层）发给模型，按你的打印节奏调
   minConfidence: 0.8          # AI 判异常所需最低置信度
-  failureStreak: 2            # 连续 N 次判异常才告警（防单张误报）
+  failureStreak: 3            # 连续 N 次判异常才告警（防误报，可调低到 2 求快）
   cooldownSeconds: 300        # 同一故障重复告警冷却
 
   bark:                       # 通知方式一（可选）：Bark iOS 推送
