@@ -34,6 +34,16 @@ func (s *Service) MarkersFile(taskID int64) string {
 	return filepath.Join(s.cfg.Storage.BaseDir, s.cfg.Storage.FramesDir, fmt.Sprintf("task-%d.layers.json", taskID))
 }
 
+// VisionDir 返回某任务 AI 打印健康分析的数据目录，例如 data/vision/task-1。
+func (s *Service) VisionDir(taskID int64) string {
+	return filepath.Join(s.cfg.Storage.BaseDir, "vision", fmt.Sprintf("task-%d", taskID))
+}
+
+// VisionEventsDir 返回某任务 AI 判异常时保留的现场图目录。
+func (s *Service) VisionEventsDir(taskID int64) string {
+	return filepath.Join(s.VisionDir(taskID), "events")
+}
+
 // EnsureDir 递归创建目录。
 func (s *Service) EnsureDir(dir string) error {
 	return os.MkdirAll(dir, 0o755)

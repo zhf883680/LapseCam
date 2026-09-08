@@ -18,8 +18,10 @@ import (
 	"timelapse/internal/database"
 	"timelapse/internal/ffmpeg"
 	"timelapse/internal/preview"
+	"timelapse/internal/printcheck"
 	"timelapse/internal/storage"
 	"timelapse/internal/timelapse"
+	"timelapse/internal/vision"
 )
 
 func main() {
@@ -43,6 +45,8 @@ func main() {
 	cam := camera.New(db, cfg, ff)
 	tl := timelapse.New(db, cfg, ff, cam, st)
 	pv := preview.New(cfg)
+	vs := vision.New(cfg)
+	pc := printcheck.New(db, cfg, vs, st)
 
 	// 初始化日志：终端 + 日志文件双输出，方便 systemd/前台/远程排查
 	if err := st.EnsureDir(cfg.Storage.BaseDir); err != nil {
@@ -80,7 +84,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:              cfg.Server.Addr,
-		Handler:           api.New(cfg, cam, tl, st, pv).Handler(),
+		Handler:           api.New(cfg, cam, tl, st, pv, pc).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
@@ -94,6 +98,7 @@ func main() {
 	log.Printf("  ffmpeg     : %s", cfg.FFmpeg.Binary)
 	log.Printf("  ffprobe    : %s", cfg.FFmpeg.FFProbe)
 	log.Printf("  编码参数   : preset=%s crf=%d maxrate=%dkbps", cfg.FFmpeg.EncodePreset, cfg.FFmpeg.EncodeCRF, cfg.FFmpeg.EncodeMaxRateKbps)
+	log.Printf("  AI 打印健康: %v (provider=%s model=%s 最近%d张/次)", pc.Enabled(), cfg.Vision.Provider, cfg.Vision.Model, cfg.Vision.AnalyzeFrames)
 	log.Println("================================")
 	log.Println("服务已启动，等待任务...")
 

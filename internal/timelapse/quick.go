@@ -331,6 +331,15 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, 0o644)
 }
 
+// ActiveQuickTaskID 返回当前正在录制的快捷任务 ID（没有则返回 0）。
+func (s *Service) ActiveQuickTaskID() int64 {
+	t, err := s.findActiveQuickTask(s.cfg.Quick.Name)
+	if err != nil || t == nil {
+		return 0
+	}
+	return t.ID
+}
+
 // findActiveQuickTask 查找 name 指定的 running/stopping 任务，没有则返回 nil。
 func (s *Service) findActiveQuickTask(name string) (*Task, error) {
 	row := s.db.QueryRow(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height,

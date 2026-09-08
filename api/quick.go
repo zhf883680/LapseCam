@@ -1,8 +1,11 @@
 package api
 
 import (
+	"context"
 	"errors"
+	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"timelapse/internal/timelapse"
@@ -42,6 +45,8 @@ func (s *Server) quickStop(w http.ResponseWriter, r *http.Request) {
 
 // quickSnapshot 逐层截图：为当前快捷任务抓取一帧（captureMode=layer）。
 // ?layer=N 可选，用于按层幂等防抖（同一层只截一次）。
+// 截完自动触发 AI 打印健康分析（后台执行，不阻塞响应）：
+// 把该任务最近 vision.analyzeFrames 张帧一起发给视觉模型判断。
 func (s *Server) quickSnapshot(w http.ResponseWriter, r *http.Request) {
 	layer := 0
 	if v := r.URL.Query().Get("layer"); v != "" {
@@ -63,6 +68,16 @@ func (s *Server) quickSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 逐层截图成功 → 后台分析最近 N 张（vision.enabled=false 时立即返回，无副作用）
+	if res.Captured && s.pc != nil {
+		taskID := res.TaskID
+		go func() {
+			if err := s.pc.CheckRecent(context.Background(), taskID); err != nil {
+				log.Printf("[printcheck] analyze task %d failed: %v", taskID, err)
+			}
+		}()
+	}
+
 	msg := "已截图"
 	if !res.Captured {
 		msg = "该层已截图，跳过"
@@ -74,6 +89,66 @@ func (s *Server) quickSnapshot(w http.ResponseWriter, r *http.Request) {
 		"captured": res.Captured,
 		"message":  msg,
 	})
+}
+
+// quickCheck 返回当前打印任务最近一次 AI 分析结果（无任务/无记录时 found=false）。
+func (s *Server) quickCheck(w http.ResponseWriter, r *http.Request) {
+	taskID := s.tl.ActiveQuickTaskID()
+	if taskID == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"found": false})
+		return
+	}
+	c, found, err := s.pc.Latest(taskID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if !found {
+		writeJSON(w, http.StatusOK, map[string]any{"found": false, "taskId": taskID})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"found": true, "check": c})
+}
+
+// quickChecks 列出分析历史。?taskId= 指定任务（缺省用当前快捷任务），?limit= 条数。
+func (s *Server) quickChecks(w http.ResponseWriter, r *http.Request) {
+	taskID, _ := strconv.ParseInt(r.URL.Query().Get("taskId"), 10, 64)
+	if taskID == 0 {
+		taskID = s.tl.ActiveQuickTaskID()
+	}
+	if taskID == 0 {
+		writeJSON(w, http.StatusOK, []any{})
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	checks, err := s.pc.List(taskID, limit)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, checks)
+}
+
+// quickCheckImage 返回某次分析的现场图（告警时保留）。
+func (s *Server) quickCheckImage(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	path, err := s.pc.CheckImagePath(id)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "check image not found")
+		return
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "check image not found")
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	http.ServeFile(w, r, path)
 }
 
 // quickLayer 记录层变化时间戳（captureMode=timestamp 出片选帧用）。

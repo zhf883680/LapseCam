@@ -130,3 +130,54 @@ func TestCleanupIntervalHoursNormalize(t *testing.T) {
 		t.Fatalf("intervalHours = %d, want 24", cfg.Cleanup.IntervalHours)
 	}
 }
+
+// TestVisionDefaults 锁定 AI 打印健康分析的默认值（默认关闭，需显式开启）。
+func TestVisionDefaults(t *testing.T) {
+	cfg := Default()
+	if cfg.Vision.Enabled {
+		t.Error("vision 默认应关闭（opt-in）")
+	}
+	if cfg.Vision.Provider != "deepseek" || cfg.Vision.Model != "deepseek-v4-flash-vision-exp" {
+		t.Errorf("vision 默认 provider/model 异常: %+v", cfg.Vision)
+	}
+	if cfg.Vision.BaseURL != "https://api.deepseek.com/v1" || cfg.Vision.Timeout != 30_000_000_000 {
+		t.Errorf("vision 默认 baseUrl/timeout 异常: %+v", cfg.Vision)
+	}
+	if cfg.Vision.AnalyzeFrames != 5 || cfg.Vision.MinConfidence != 0.8 ||
+		cfg.Vision.FailureStreak != 2 || cfg.Vision.CooldownSeconds != 300 {
+		t.Errorf("vision 分析策略默认异常: %+v", cfg.Vision)
+	}
+	if cfg.Vision.Webhook.Enabled {
+		t.Error("webhook 默认应关闭")
+	}
+}
+
+// TestVisionLoadYAML 确保随仓库发布的 config.yaml 能解析出 vision 段。
+func TestVisionLoadYAML(t *testing.T) {
+	cfg, err := Load("config.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Vision.Enabled {
+		t.Error("config.yaml vision.enabled 应为 false（默认关闭，按需开启）")
+	}
+	if cfg.Vision.AnalyzeFrames != 5 {
+		t.Errorf("config.yaml analyzeFrames = %d, want 5", cfg.Vision.AnalyzeFrames)
+	}
+}
+
+// TestVisionDisabled 确保显式 vision.enabled=false 不被默认值覆盖。
+func TestVisionDisabled(t *testing.T) {
+	dir := t.TempDir()
+	path := dir + "/c.yaml"
+	if err := os.WriteFile(path, []byte("vision:\n  enabled: false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Vision.Enabled {
+		t.Fatal("vision.enabled=false 被默认值覆盖回 true")
+	}
+}

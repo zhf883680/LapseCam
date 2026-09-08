@@ -18,6 +18,7 @@ Go + FFmpeg 构建的轻量延时摄影服务：添加 RTSP 摄像头 → 定时
 - **自动出片**：抽帧与成片解耦，任务结束自动用 x264 压成 H.264 MP4，浏览器直接播放/下载
 - **Web 管理后台**：单文件内嵌，摄像头/任务/视频三个面板，实时进度
 - **数据清理**：出片后自动删中间帧，一键/定时清理旧视频与无主残留，磁盘不爆
+- **AI 打印健康分析**：逐层截图（layer 模式）截完一层图后，自动把最近 N 张帧一起发给 OpenAI 兼容视觉模型（默认 DeepSeek）判断炒面/堵头/打印件被拖走，连续判异常才 Webhook 报警
 - **轻量易部署**：Docker 一键起，或 Armbian（树莓派/电视盒子）一键装成 systemd 服务
 
 ## 🎬 典型使用场景
@@ -251,6 +252,69 @@ automation:
 > `layer` 模式要求配置 `quick.captureMode: "layer"`，`timestamp` 模式要求 `"timestamp"`；
 > 两种模式的接口与参数说明见 [API 与配置参考](docs/api.md)。
 
+
+
+### 2.6 AI 打印健康分析（每层截图后自动判断，可选）
+
+配合上面的 `layer` 逐层截图模式：**每次 HA 调 `/api/quick/snapshot` 截完一层图后，LapseCam 自动把
+该打印任务最近 `vision.analyzeFrames` 张帧（默认 5 张 = 最近 5 层）打包发给视觉模型判断一次**，
+不用自己每几秒盯一次，也不用另外调接口。连续 `vision.failureStreak` 次（默认 2）判异常才会
+通过 Webhook 报警，避免单次误报；告警现场图自动留存，随时能看「AI 为什么这么判断」。
+
+开启步骤：
+
+1. 配置 `quick.captureMode: "layer"`（上一节）
+2. 设置 API Key（推荐用环境变量，避免密钥进配置文件）：
+   - Docker：在 `docker-compose.yml` 同目录的 `.env` 写 `VISION_API_KEY=sk-xxxx`
+   - 或直接填 `config/config.yaml` 的 `vision.apiKey`
+3. 打开 `config/config.yaml`：
+
+   ```yaml
+   vision:
+     enabled: true          # 打开 AI 分析
+     analyzeFrames: 5       # 每次取最近几张（层）发给模型，按你的打印节奏调
+     webhook:
+       enabled: true
+       url: "http://homeassistant:8123/api/webhook/lapsecam-print"
+   ```
+
+4. 重启 LapseCam。之后每截一层图会自动分析；想看结果（HA 做传感器/自动化判断）：
+   ```bash
+   curl http://<LapseCam IP>:19090/api/quick/check    # 最近一次分析结果
+   curl "http://<LapseCam IP>:19090/api/quick/checks?limit=10"   # 历史
+   ```
+
+模型按 OpenAI 兼容接口调用：`vision.baseUrl` 默认 DeepSeek（`https://api.deepseek.com/v1`），
+换成 OpenAI / OpenRouter / 自建兼容服务只需改 `baseUrl` + `model` + `apiKey`。
+DeepSeek 视觉模型参考 <https://api-docs.deepseek.com/zh-cn/guides/vision>。
+
+告警 Webhook 载荷（POST JSON，HA 用 `webhook` automation 接住即可）：
+
+```json
+{
+  "taskId": 12,
+  "status": "spaghetti",
+  "confidence": 0.94,
+  "reason": "模型顶部出现大量无规则挤出丝，明显偏离正常打印结构",
+  "image": "/api/quick/checks/23/image",
+  "timestamp": "2026-09-08T09:00:15+08:00"
+}
+```
+
+HA 收到告警后暂停/通知示例：
+
+```yaml
+automation:
+  - alias: "打印异常 → 通知并暂停"
+    trigger:
+      - platform: webhook
+        webhook_id: lapsecam-print
+    action:
+      - service: notify.mobile_app_phone
+        data:
+          title: "3D 打印可能失败了"
+          message: "{{ trigger.json.reason }}"
+```
 
 ### 3. 示例：每天日出到日落自动延时
 

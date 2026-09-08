@@ -55,3 +55,24 @@ cleanup:
   removeFramesAfterEncode: true # 出片成功后删除中间帧（最占空间，一次几小时录制几个 GB）
   videoRetentionDays: 0         # 0=保留全部；>0 只保留最近 N 天视频记录及文件
   removeOrphans: true           # 清理孤儿数据（无主 task-{id} 目录/日志/标记）
+
+# ============================================================
+# AI 打印健康分析（Vision）—— 逐层截图后自动分析最近 N 张
+# ============================================================
+
+vision:
+  enabled: false
+  provider: "deepseek"
+  baseUrl: "https://api.deepseek.com/v1"
+  apiKey: ""                    # 或用环境变量 VISION_API_KEY
+  model: "deepseek-v4-flash-vision-exp"
+  timeout: 40s                  # ARM 设备网络稍慢，放宽一点
+  detail: ""
+
+  analyzeFrames: 5
+  minConfidence: 0.8
+  failureStreak: 2
+  cooldownSeconds: 300
+  webhook:
+    enabled: false
+    url: ""

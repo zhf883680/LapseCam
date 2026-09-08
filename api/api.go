@@ -14,6 +14,7 @@ import (
 	"timelapse/config"
 	"timelapse/internal/camera"
 	"timelapse/internal/preview"
+	"timelapse/internal/printcheck"
 	"timelapse/internal/storage"
 	"timelapse/internal/timelapse"
 	"timelapse/web"
@@ -26,10 +27,11 @@ type Server struct {
 	tl      *timelapse.Service
 	storage *storage.Service
 	prev    *preview.Service
+	pc      *printcheck.Service
 }
 
-func New(cfg *config.Config, cam *camera.Service, tl *timelapse.Service, st *storage.Service, prev *preview.Service) *Server {
-	return &Server{cfg: cfg, cam: cam, tl: tl, storage: st, prev: prev}
+func New(cfg *config.Config, cam *camera.Service, tl *timelapse.Service, st *storage.Service, prev *preview.Service, pc *printcheck.Service) *Server {
+	return &Server{cfg: cfg, cam: cam, tl: tl, storage: st, prev: prev, pc: pc}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -64,6 +66,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/quick/stop", s.quickStop)
 	mux.HandleFunc("POST /api/quick/snapshot", s.quickSnapshot) // 逐层截图（captureMode=layer）
 	mux.HandleFunc("POST /api/quick/layer", s.quickLayer)       // 记录层变化（captureMode=timestamp）
+
+	// AI 打印健康分析（逐层截图后自动分析最近 N 张）
+	mux.HandleFunc("GET /api/quick/check", s.quickCheck)                  // 当前打印任务最近一次分析
+	mux.HandleFunc("GET /api/quick/checks", s.quickChecks)                // 分析历史（?taskId=&limit=）
+	mux.HandleFunc("GET /api/quick/checks/{id}/image", s.quickCheckImage) // 告警现场图
 
 	// 实时预览：把 go2rtc 的 /go2rtc/* 反代出去（含 MSE 用的 WebSocket），保持单端口
 	if s.prev.Enabled() {

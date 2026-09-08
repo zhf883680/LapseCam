@@ -18,6 +18,7 @@ type Config struct {
 	Scheduler SchedulerConfig `yaml:"scheduler"`
 	Quick     QuickConfig     `yaml:"quick"`
 	Cleanup   CleanupConfig   `yaml:"cleanup"`
+	Vision    VisionConfig    `yaml:"vision"` // AI 打印健康分析（DeepSeek 视觉）
 }
 
 // CleanupConfig 数据清理（释放磁盘空间）。
@@ -38,14 +39,14 @@ const (
 
 // QuickConfig 快捷录制配置（POST /api/quick/start 与 /api/quick/stop）。
 type QuickConfig struct {
-	Name               string  `yaml:"name"`            // 快捷任务名称（用于识别）
-	CaptureMode        string  `yaml:"captureMode"`     // 抽帧模式：interval | layer | timestamp
-	IntervalSeconds    int     `yaml:"intervalSeconds"` // 抽帧间隔（秒），interval/timestamp 模式使用
+	Name               string  `yaml:"name"`               // 快捷任务名称（用于识别）
+	CaptureMode        string  `yaml:"captureMode"`        // 抽帧模式：interval | layer | timestamp
+	IntervalSeconds    int     `yaml:"intervalSeconds"`    // 抽帧间隔（秒），interval/timestamp 模式使用
 	LayerOffsetSeconds float64 `yaml:"layerOffsetSeconds"` // timestamp 模式：选帧目标时刻 = 层变化时刻 + 偏移（秒，可负）
 	LayerWindowSeconds float64 `yaml:"layerWindowSeconds"` // timestamp 模式：选帧窗口（秒），窗口内取最接近的一帧
-	OutputFPS          int     `yaml:"outputFps"`       // 成片帧率
-	Width              int     `yaml:"width"`           // 成片宽
-	Height             int     `yaml:"height"`          // 成片高
+	OutputFPS          int     `yaml:"outputFps"`          // 成片帧率
+	Width              int     `yaml:"width"`              // 成片宽
+	Height             int     `yaml:"height"`             // 成片高
 }
 
 type ServerConfig struct {
@@ -91,6 +92,31 @@ type PreviewConfig struct {
 type SchedulerConfig struct {
 	TickSeconds        int `yaml:"tickSeconds"`        // 任务调度轮询间隔
 	CameraCheckSeconds int `yaml:"cameraCheckSeconds"` // 摄像头在线状态轮询间隔，0 表示关闭
+}
+
+// VisionConfig AI 打印健康分析：每次 /api/quick/snapshot 截完一层图后，
+// 把该打印任务最近 analyzeFrames 张帧一起发给 OpenAI 兼容的视觉模型（DeepSeek）判断一次。
+// 参考 https://api-docs.deepseek.com/zh-cn/guides/vision
+type VisionConfig struct {
+	Enabled  bool          `yaml:"enabled"`  // 是否启用 AI 分析
+	Provider string        `yaml:"provider"` // deepseek（默认，OpenAI 兼容接口）
+	BaseURL  string        `yaml:"baseUrl"`  // OpenAI 兼容地址，如 https://api.deepseek.com/v1
+	APIKey   string        `yaml:"apiKey"`   // API Key；留空读环境变量 VISION_API_KEY
+	Model    string        `yaml:"model"`    // 视觉模型，默认 deepseek-v4-flash-vision-exp
+	Timeout  time.Duration `yaml:"timeout"`  // 单次分析超时
+	Detail   string        `yaml:"detail"`   // 图片细节 low/high/original/auto，空=不传（默认 original）
+
+	AnalyzeFrames   int           `yaml:"analyzeFrames"`   // 每次分析取最近多少张帧（按时间/层数由你调）
+	MinConfidence   float64       `yaml:"minConfidence"`   // AI 判异常所需的最低置信度
+	FailureStreak   int           `yaml:"failureStreak"`   // 连续 N 次分析判异常才告警（防单次误报）
+	CooldownSeconds int           `yaml:"cooldownSeconds"` // 同一打印任务重复告警冷却（秒）
+	Webhook         WebhookConfig `yaml:"webhook"`         // 告警回调（Home Assistant 等）
+}
+
+// WebhookConfig 故障告警 Webhook。
+type WebhookConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	URL     string `yaml:"url"`
 }
 
 // Load 读取 YAML 配置文件并填充默认值。
@@ -151,6 +177,18 @@ func Default() *Config {
 			RemoveFramesAfterEncode: true,
 			VideoRetentionDays:      0,
 			RemoveOrphans:           true,
+		},
+		Vision: VisionConfig{
+			Enabled:         false,
+			Provider:        "deepseek",
+			BaseURL:         "https://api.deepseek.com/v1",
+			Model:           "deepseek-v4-flash-vision-exp",
+			Timeout:         30 * time.Second,
+			AnalyzeFrames:   5,
+			MinConfidence:   0.8,
+			FailureStreak:   2,
+			CooldownSeconds: 300,
+			Webhook:         WebhookConfig{Enabled: false},
 		},
 	}
 }
@@ -254,6 +292,32 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Cleanup.IntervalHours <= 0 {
 		c.Cleanup.IntervalHours = d.Cleanup.IntervalHours
+	}
+
+	// vision
+	if c.Vision.Provider == "" {
+		c.Vision.Provider = d.Vision.Provider
+	}
+	if c.Vision.BaseURL == "" {
+		c.Vision.BaseURL = d.Vision.BaseURL
+	}
+	if c.Vision.Model == "" {
+		c.Vision.Model = d.Vision.Model
+	}
+	if c.Vision.Timeout <= 0 {
+		c.Vision.Timeout = d.Vision.Timeout
+	}
+	if c.Vision.AnalyzeFrames <= 0 {
+		c.Vision.AnalyzeFrames = d.Vision.AnalyzeFrames
+	}
+	if c.Vision.MinConfidence <= 0 {
+		c.Vision.MinConfidence = d.Vision.MinConfidence
+	}
+	if c.Vision.FailureStreak <= 0 {
+		c.Vision.FailureStreak = d.Vision.FailureStreak
+	}
+	if c.Vision.CooldownSeconds < 0 {
+		c.Vision.CooldownSeconds = d.Vision.CooldownSeconds
 	}
 }
 

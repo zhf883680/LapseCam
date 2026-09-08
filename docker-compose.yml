@@ -10,3 +10,6 @@ services:
       - ./config:/app/config    # 配置（可挂载后修改）
     environment:
       - TZ=Asia/Shanghai
+      # AI 打印健康分析的 API Key（可选；OpenAI 兼容服务，默认 DeepSeek）。
+      # 也可直接在 config.yaml 的 vision.apiKey 填写。
+      - VISION_API_KEY=${VISION_API_KEY:-}

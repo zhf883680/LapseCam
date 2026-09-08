@@ -51,3 +51,27 @@ cleanup:
   removeFramesAfterEncode: true # 出片成功后删除中间帧（最占空间，一次几小时录制几个 GB）
   videoRetentionDays: 0         # 0=保留全部；>0 只保留最近 N 天视频记录及文件
   removeOrphans: true           # 清理孤儿数据（无主 task-{id} 目录/日志/标记）
+
+# ============================================================
+# AI 打印健康分析（Vision）
+# 配合逐层截图：每次 POST /api/quick/snapshot 截完一层图后，
+# 自动把该打印任务最近 analyzeFrames 张帧一起发给 DeepSeek 视觉模型判断，
+# 连续 failureStreak 次判异常才发 Webhook（防单次误报）。
+# ============================================================
+
+vision:
+  enabled: false                # 是否启用 AI 分析
+  provider: "deepseek"          # deepseek（OpenAI 兼容接口），换 OpenAI/OpenRouter 改 baseUrl/model 即可
+  baseUrl: "https://api.deepseek.com/v1"
+  apiKey: ""                    # 推荐用环境变量 VISION_API_KEY，避免密钥进配置文件
+  model: "deepseek-v4-flash-vision-exp"   # DeepSeek 视觉模型
+  timeout: 30s                  # 单次分析超时
+  detail: ""                    # 图片细节：low/high/original/auto，空=不传（等价 original）
+
+  analyzeFrames: 5              # 每次分析取最近多少张帧（按你的打印节奏调，例如 5 = 最近 5 层）
+  minConfidence: 0.8            # AI 判异常所需的最低置信度
+  failureStreak: 2              # 连续 N 次分析判异常才告警（默认 2，防单次误报）
+  cooldownSeconds: 300          # 同一打印任务重复告警冷却（秒）
+  webhook:
+    enabled: false
+    url: ""                     # 如 http://homeassistant:8123/api/webhook/lapsecam-print

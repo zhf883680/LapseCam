@@ -89,6 +89,19 @@ CREATE TABLE IF NOT EXISTS timelapse_records (
 CREATE INDEX IF NOT EXISTS idx_tasks_status   ON timelapse_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_camera   ON timelapse_tasks(camera_id);
 CREATE INDEX IF NOT EXISTS idx_records_task   ON timelapse_records(task_id);
+
+CREATE TABLE IF NOT EXISTS vision_checks (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id    INTEGER NOT NULL,
+    status     TEXT    NOT NULL,
+    confidence REAL    NOT NULL DEFAULT 0,
+    reason     TEXT    NOT NULL DEFAULT '',
+    image_path TEXT    NOT NULL DEFAULT '',
+    alert      INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_vision_checks_task ON vision_checks(task_id, id);
 `
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("migrate: %w", err)

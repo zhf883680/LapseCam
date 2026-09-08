@@ -97,6 +97,37 @@ curl -X POST "http://192.168.1.20:19090/api/quick/layer?layer=3"
 curl -X POST http://192.168.1.20:19090/api/quick/stop
 ```
 
+
+### AI 打印健康分析（逐层截图后自动判断，可选）
+
+`layer` 模式每次 `/api/quick/snapshot` 截完一层图后，LapseCam 自动把该任务最近
+`vision.analyzeFrames` 张帧（升序）一起发给 OpenAI 兼容视觉模型判断；连续
+`vision.failureStreak` 次判异常 → 保存现场图并发 Webhook（带冷却）。分析是后台异步执行，
+`/api/quick/snapshot` 立即返回，不阻塞 HA。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/quick/check` | 当前打印任务最近一次分析结果（无任务/无记录 `found=false`） |
+| GET | `/api/quick/checks?taskId=&limit=` | 分析历史（缺省 taskId=当前快捷任务） |
+| GET | `/api/quick/checks/{id}/image` | 某次分析的现场图（告警时保存） |
+
+检测状态：`normal` / `spaghetti`(炒面) / `clog`(堵头) / `object_displaced`(打印件被拖走) /
+`nozzle_collision` / `material_buildup` / `unknown`。`confidence >= vision.minConfidence` 且属于
+异常集合才计入；连续 `failureStreak` 次判异常才告警（默认 2，防单次误报）。
+
+Webhook 载荷（POST JSON）：
+
+```json
+{
+  "taskId": 12,
+  "status": "spaghetti",
+  "confidence": 0.94,
+  "reason": "模型顶部出现大量无规则挤出丝，明显偏离正常打印结构",
+  "image": "/api/quick/checks/23/image",
+  "timestamp": "2026-09-08T09:00:15+08:00"
+}
+```
+
 ## 视频
 
 | 方法 | 路径 | 说明 |
@@ -166,6 +197,15 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `cleanup.removeFramesAfterEncode` | 出片成功后删除中间帧，默认 `true` |
 | `cleanup.videoRetentionDays` | 0=保留全部；>0 只保留最近 N 天视频，默认 0 |
 | `cleanup.removeOrphans` | 清理孤儿数据，默认 `true` |
+| `vision.enabled` | AI 打印健康分析开关，默认 `false` |
+| `vision.provider/baseUrl/apiKey/model` | OpenAI 兼容接口：默认 deepseek / `https://api.deepseek.com/v1` / `deepseek-v4-flash-vision-exp`；换 OpenAI/OpenRouter 改这三项即可 |
+| `vision.timeout` | 单次分析超时，默认 `30s` |
+| `vision.detail` | 图片细节 `low/high/original/auto`，空=不传 |
+| `vision.analyzeFrames` | 每次分析取最近几张帧，默认 `5` |
+| `vision.minConfidence` | AI 判异常最低置信度，默认 `0.8` |
+| `vision.failureStreak` | 连续 N 次判异常才告警，默认 `2` |
+| `vision.cooldownSeconds` | 同一任务重复告警冷却（秒），默认 `300` |
+| `vision.webhook.enabled/url` | 告警 Webhook 开关与地址 |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：
 
@@ -215,6 +255,21 @@ quick:
   outputFps: 30
   width: 1280
   height: 720
+
+vision:
+  enabled: false
+  provider: "deepseek"
+  baseUrl: "https://api.deepseek.com/v1"
+  apiKey: ""
+  model: "deepseek-v4-flash-vision-exp"
+  timeout: 30s
+  analyzeFrames: 5
+  minConfidence: 0.8
+  failureStreak: 2
+  cooldownSeconds: 300
+  webhook:
+    enabled: false
+    url: ""
 ```
 
 ## 项目结构
