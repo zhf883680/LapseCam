@@ -109,7 +109,11 @@ curl -X POST http://192.168.1.20:19090/api/quick/stop
 | --- | --- | --- |
 | GET | `/api/quick/check` | 当前打印任务最近一次分析结果（无任务/无记录 `found=false`） |
 | GET | `/api/quick/checks?taskId=&limit=` | 分析历史（缺省 taskId=当前快捷任务） |
-| GET | `/api/quick/checks/{id}/image` | 某次分析的现场图（告警时保存） |
+| GET | `/api/checks?limit=` | 审计：跨任务分析记录（含任务/摄像头名，页面「AI 监控」用） |
+| GET | `/api/checks/{id}/image` | 某次分析的现场图（`/api/quick/checks/{id}/image` 同义） |
+| GET | `/api/config` | 读取可编辑的 AI/监控配置（Key 不回传明文） |
+| PUT | `/api/config` | 写回配置（只改 `quick.captureMode` 与 `vision` 段，重启后生效） |
+| POST | `/api/config/restart` | 保存配置后触发重启（systemd/Docker 自动拉起） |
 
 检测状态：`normal` / `spaghetti`(炒面) / `clog`(堵头) / `object_displaced`(打印件被拖走) /
 `nozzle_collision` / `material_buildup` / `unknown`。`confidence >= vision.minConfidence` 且属于

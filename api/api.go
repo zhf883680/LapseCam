@@ -28,10 +28,11 @@ type Server struct {
 	storage *storage.Service
 	prev    *preview.Service
 	pc      *printcheck.Service
+	cfgPath string // config 文件路径（页面改配置写回用）
 }
 
-func New(cfg *config.Config, cam *camera.Service, tl *timelapse.Service, st *storage.Service, prev *preview.Service, pc *printcheck.Service) *Server {
-	return &Server{cfg: cfg, cam: cam, tl: tl, storage: st, prev: prev, pc: pc}
+func New(cfg *config.Config, cam *camera.Service, tl *timelapse.Service, st *storage.Service, prev *preview.Service, pc *printcheck.Service, cfgPath string) *Server {
+	return &Server{cfg: cfg, cam: cam, tl: tl, storage: st, prev: prev, pc: pc, cfgPath: cfgPath}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -71,6 +72,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/quick/check", s.quickCheck)                  // 当前打印任务最近一次分析
 	mux.HandleFunc("GET /api/quick/checks", s.quickChecks)                // 分析历史（?taskId=&limit=）
 	mux.HandleFunc("GET /api/quick/checks/{id}/image", s.quickCheckImage) // 告警现场图
+	mux.HandleFunc("GET /api/checks", s.listAllChecks)                    // 审计：跨任务 AI 分析记录
+	mux.HandleFunc("GET /api/checks/{id}/image", s.quickCheckImage)       // 审计现场图（别名）
+
+	// 配置读写（页面设置 AI 打印监控 / 逐层截图模式）
+	mux.HandleFunc("GET /api/config", s.getConfig)
+	mux.HandleFunc("PUT /api/config", s.updateConfig)
+	mux.HandleFunc("POST /api/config/restart", s.restartConfig)
 
 	// 实时预览：把 go2rtc 的 /go2rtc/* 反代出去（含 MSE 用的 WebSocket），保持单端口
 	if s.prev.Enabled() {

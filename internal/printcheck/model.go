@@ -6,6 +6,8 @@ import "time"
 type Check struct {
 	ID         int64     `json:"id"`
 	TaskID     int64     `json:"taskId"`
+	TaskName   string    `json:"taskName,omitempty"`
+	CameraName string    `json:"cameraName,omitempty"`
 	Status     string    `json:"status"`
 	Confidence float64   `json:"confidence"`
 	Reason     string    `json:"reason,omitempty"`

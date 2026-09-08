@@ -170,6 +170,41 @@ func (s *Service) List(taskID int64, limit int) ([]Check, error) {
 	return out, rows.Err()
 }
 
+// ListAll 返回最近 limit 条 AI 分析记录（跨任务，审计用），附任务/摄像头名。
+func (s *Service) ListAll(limit int) ([]Check, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.db.Query(`SELECT c.id, c.task_id, t.name, cam.name, c.status, c.confidence,
+		c.reason, c.image_path, c.alert, c.created_at
+		FROM vision_checks c
+		LEFT JOIN timelapse_tasks t ON t.id = c.task_id
+		LEFT JOIN cameras cam ON cam.id = t.camera_id
+		ORDER BY c.id DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]Check, 0)
+	for rows.Next() {
+		var c Check
+		var alert int
+		var createdAt string
+		var taskName, camName sql.NullString
+		if err := rows.Scan(&c.ID, &c.TaskID, &taskName, &camName, &c.Status, &c.Confidence,
+			&c.Reason, &c.ImagePath, &alert, &createdAt); err != nil {
+			return nil, err
+		}
+		c.TaskName = taskName.String
+		c.CameraName = camName.String
+		c.Alert = alert == 1
+		c.CreatedAt = database.ParseTime(createdAt)
+		c.ImageURL = fmt.Sprintf("/api/checks/%d/image", c.ID)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // CheckImagePath 返回某条分析记录的现场图存储路径。
 func (s *Service) CheckImagePath(id int64) (string, error) {
 	var p string

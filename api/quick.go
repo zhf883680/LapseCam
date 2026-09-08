@@ -181,3 +181,18 @@ func (s *Server) quickLayer(w http.ResponseWriter, r *http.Request) {
 		"message":  "已记录层变化",
 	})
 }
+
+// listAllChecks 返回跨任务的 AI 分析审计记录（?limit= 条数，默认 100）。
+func (s *Server) listAllChecks(w http.ResponseWriter, r *http.Request) {
+	if s.pc == nil {
+		writeJSON(w, http.StatusOK, []any{})
+		return
+	}
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	checks, err := s.pc.ListAll(limit)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, checks)
+}
