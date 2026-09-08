@@ -31,6 +31,7 @@ type visionView struct {
 	APIKeySet       bool    `json:"apiKeySet"`
 	TimeoutSec      int     `json:"timeoutSec"`
 	Detail          string  `json:"detail"`
+	DisableThinking bool    `json:"disableThinking"`
 	AnalyzeFrames   int     `json:"analyzeFrames"`
 	MinConfidence   float64 `json:"minConfidence"`
 	FailureStreak   int     `json:"failureStreak"`
@@ -62,6 +63,7 @@ type visionIn struct {
 	APIKey          *string  `json:"apiKey"` // 空 = 保持原值
 	TimeoutSec      *int     `json:"timeoutSec"`
 	Detail          *string  `json:"detail"`
+	DisableThinking *bool    `json:"disableThinking"`
 	AnalyzeFrames   *int     `json:"analyzeFrames"`
 	MinConfidence   *float64 `json:"minConfidence"`
 	FailureStreak   *int     `json:"failureStreak"`
@@ -93,6 +95,7 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 			APIKeySet:       vc.APIKey != "",
 			TimeoutSec:      int(vc.Timeout / time.Second),
 			Detail:          vc.Detail,
+			DisableThinking: vc.DisableThinking,
 			AnalyzeFrames:   vc.AnalyzeFrames,
 			MinConfidence:   vc.MinConfidence,
 			FailureStreak:   vc.FailureStreak,
@@ -203,6 +206,9 @@ func (s *Server) applyConfigInput(in configInput) error {
 		if v.Detail != nil {
 			vc.Detail = *v.Detail
 		}
+		if v.DisableThinking != nil {
+			vc.DisableThinking = *v.DisableThinking
+		}
 		if v.AnalyzeFrames != nil && *v.AnalyzeFrames > 0 {
 			vc.AnalyzeFrames = *v.AnalyzeFrames
 		}
@@ -292,6 +298,7 @@ type visionYAML struct {
 	Model           string      `yaml:"model"`
 	Timeout         string      `yaml:"timeout"`
 	Detail          string      `yaml:"detail"`
+	DisableThinking bool        `yaml:"disableThinking"`
 	AnalyzeFrames   int         `yaml:"analyzeFrames"`
 	MinConfidence   float64     `yaml:"minConfidence"`
 	FailureStreak   int         `yaml:"failureStreak"`
@@ -326,6 +333,7 @@ func marshalVision(vc config.VisionConfig) (string, error) {
 		Model:           vc.Model,
 		Timeout:         fmt.Sprintf("%ds", sec),
 		Detail:          vc.Detail,
+		DisableThinking: vc.DisableThinking,
 		AnalyzeFrames:   vc.AnalyzeFrames,
 		MinConfidence:   vc.MinConfidence,
 		FailureStreak:   vc.FailureStreak,

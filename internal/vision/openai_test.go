@@ -148,3 +148,34 @@ func TestAnalyzeErrors(t *testing.T) {
 		t.Error("want error for empty choices")
 	}
 }
+
+func TestDisableThinkingDashScopeOnly(t *testing.T) {
+	type bodyT struct {
+		EnableThinking *bool `json:"enable_thinking"`
+	}
+	capture := func(c *openAICompatible) *bool {
+		var got bodyT
+		c.client = &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			body, _ := io.ReadAll(r.Body)
+			_ = json.Unmarshal(body, &got)
+			return jsonResponse(200, `{"choices":[{"message":{"content":"{\"status\":\"normal\",\"confidence\":0.9}"}}]}`), nil
+		})}
+		_, _ = c.Analyze(context.Background(), [][]byte{fake1x1JPEG})
+		return got.EnableThinking
+	}
+
+	// 阿里云 DashScope / 百炼专属端点（ws-*.maas / batch.dashscope）→ 自动关思考
+	for _, base := range []string{"https://batch.dashscope.aliyuncs.com/compatible-mode/v1", "https://ws-xxx.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"} {
+		c := &openAICompatible{baseURL: base, apiKey: "k", model: "qwen3.7-flash", timeout: time.Second, disableThinking: true}
+		got := capture(c)
+		if got == nil || *got {
+			t.Errorf("dashscope(%s) enable_thinking = %v, want false", base, got)
+		}
+	}
+
+	// 其它 OpenAI 兼容端点 → 不带该参数（避免被不认识的服务报错）
+	c := &openAICompatible{baseURL: "https://api.deepseek.com/v1", apiKey: "k", model: "deepseek-v4-flash-vision-exp", timeout: time.Second, disableThinking: true}
+	if got := capture(c); got != nil {
+		t.Errorf("deepseek enable_thinking 应为 nil，got %v", *got)
+	}
+}

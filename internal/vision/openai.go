@@ -19,12 +19,13 @@ import (
 //
 //	https://api-docs.deepseek.com/zh-cn/guides/vision
 type openAICompatible struct {
-	baseURL string
-	apiKey  string
-	model   string
-	detail  string // low/high/original/auto，空表示不传
-	timeout time.Duration
-	client  *http.Client // 可注入（测试用），nil 时用 http.DefaultClient
+	baseURL         string
+	apiKey          string
+	model           string
+	detail          string // low/high/original/auto，空表示不传
+	timeout         time.Duration
+	disableThinking bool         // 对千问/阿里云端点关闭思考模式（enable_thinking=false）
+	client          *http.Client // 可注入（测试用），nil 时用 http.DefaultClient
 }
 
 type chatMessage struct {
@@ -44,8 +45,9 @@ type imageURL struct {
 }
 
 type chatRequestBody struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
+	Model          string        `json:"model"`
+	Messages       []chatMessage `json:"messages"`
+	EnableThinking *bool         `json:"enable_thinking,omitempty"` // 千问/阿里云：关闭思考模式
 }
 
 type chatResponseBody struct {
@@ -100,6 +102,12 @@ func (c *openAICompatible) Analyze(ctx context.Context, images [][]byte) (*Analy
 			{Role: "user", Content: parts},
 		},
 	}
+	// qwen3 等千问系列默认开思考模式（慢且 thinking token 计费）；
+	// 对阿里云（DashScope/百炼，含 ws-*.maas / batch.dashscope 等专属端点）默认关闭
+	if c.disableThinking && isDashScope(c.baseURL) {
+		f := false
+		body.EnableThinking = &f
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
@@ -144,6 +152,12 @@ func (c *openAICompatible) Analyze(ctx context.Context, images [][]byte) (*Analy
 		return nil, fmt.Errorf("vision api empty content")
 	}
 	return parseResult(parsed.Choices[0].Message.Content)
+}
+
+// isDashScope 判断是否阿里云百炼/DashScope 系列端点（支持 enable_thinking 参数）。
+func isDashScope(baseURL string) bool {
+	u := strings.ToLower(baseURL)
+	return strings.Contains(u, "dashscope.aliyuncs.com") || strings.Contains(u, "maas.aliyuncs.com")
 }
 
 // dataURL 把图片字节编码为 data URL（按文件头识别 MIME，识别不了按 JPEG）。

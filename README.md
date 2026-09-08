@@ -160,7 +160,8 @@ vision:
   provider: "deepseek"        # 通用 OpenAI 兼容：改 baseUrl+model+apiKey 即可换 OpenAI/OpenRouter…
   baseUrl: "https://api.deepseek.com/v1"
   model: "deepseek-v4-flash-vision-exp"
-  timeout: 30s
+  timeout: 180s            # qwen 等慢模型可再放宽
+  disableThinking: true    # 默认关思考（千问/阿里云生效）
 
   analyzeFrames: 5            # 每次把最近几张（层）发给模型，按你的打印节奏调
   minConfidence: 0.8          # AI 判异常所需最低置信度

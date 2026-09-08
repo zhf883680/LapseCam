@@ -98,13 +98,14 @@ type SchedulerConfig struct {
 // 把该打印任务最近 analyzeFrames 张帧一起发给 OpenAI 兼容的视觉模型（DeepSeek）判断一次。
 // 参考 https://api-docs.deepseek.com/zh-cn/guides/vision
 type VisionConfig struct {
-	Enabled  bool          `yaml:"enabled"`  // 是否启用 AI 分析
-	Provider string        `yaml:"provider"` // deepseek（默认，OpenAI 兼容接口）
-	BaseURL  string        `yaml:"baseUrl"`  // OpenAI 兼容地址，如 https://api.deepseek.com/v1
-	APIKey   string        `yaml:"apiKey"`   // API Key；留空读环境变量 VISION_API_KEY
-	Model    string        `yaml:"model"`    // 视觉模型，默认 deepseek-v4-flash-vision-exp
-	Timeout  time.Duration `yaml:"timeout"`  // 单次分析超时
-	Detail   string        `yaml:"detail"`   // 图片细节 low/high/original/auto，空=不传（默认 original）
+	Enabled         bool          `yaml:"enabled"`         // 是否启用 AI 分析
+	Provider        string        `yaml:"provider"`        // deepseek（默认，OpenAI 兼容接口）
+	BaseURL         string        `yaml:"baseUrl"`         // OpenAI 兼容地址，如 https://api.deepseek.com/v1
+	APIKey          string        `yaml:"apiKey"`          // API Key；留空读环境变量 VISION_API_KEY
+	Model           string        `yaml:"model"`           // 视觉模型，默认 deepseek-v4-flash-vision-exp
+	Timeout         time.Duration `yaml:"timeout"`         // 单次分析超时（qwen 等慢模型建议 120s+）
+	Detail          string        `yaml:"detail"`          // 图片细节 low/high/original/auto，空=不传（默认 original）
+	DisableThinking bool          `yaml:"disableThinking"` // 关闭思考模式（qwen3 等默认开 thinking，又慢又贵；仅对千问/阿里云生效）
 
 	AnalyzeFrames   int           `yaml:"analyzeFrames"`   // 每次分析取最近多少张帧（按时间/层数由你调）
 	MinConfidence   float64       `yaml:"minConfidence"`   // AI 判异常所需的最低置信度
@@ -193,7 +194,8 @@ func Default() *Config {
 			Provider:        "deepseek",
 			BaseURL:         "https://api.deepseek.com/v1",
 			Model:           "deepseek-v4-flash-vision-exp",
-			Timeout:         30 * time.Second,
+			Timeout:         180 * time.Second,
+			DisableThinking: true,
 			AnalyzeFrames:   5,
 			MinConfidence:   0.8,
 			FailureStreak:   2,

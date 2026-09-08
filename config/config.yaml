@@ -65,8 +65,9 @@ vision:
   baseUrl: "https://api.deepseek.com/v1"
   apiKey: ""                    # 推荐用环境变量 VISION_API_KEY，避免密钥进配置文件
   model: "deepseek-v4-flash-vision-exp"   # DeepSeek 视觉模型
-  timeout: 30s                  # 单次分析超时
+  timeout: 180s                  # 单次分析超时
   detail: ""                    # 图片细节：low/high/original/auto，空=不传（等价 original）
+  disableThinking: true          # 关闭思考模式（qwen3 等默认开 thinking，又慢又贵）
 
   analyzeFrames: 5              # 每次分析取最近多少张帧（按你的打印节奏调，例如 5 = 最近 5 层）
   minConfidence: 0.8            # AI 判异常所需的最低置信度

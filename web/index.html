@@ -140,6 +140,7 @@ video{width:100%;border-radius:10px;background:#000}
       <div class="panel">
         <h3>视觉模型（OpenAI 兼容，默认 DeepSeek）</h3>
         <div class="form-check"><input type="checkbox" id="vEnabled"><label style="margin:0">启用 AI 分析</label></div>
+        <div class="form-check"><input type="checkbox" id="vDisableThinking" checked><label style="margin:0">关闭思考模式（千问/阿里云默认开 thinking，建议保持勾选）</label></div>
         <div class="row">
           <div class="form-row"><label>provider</label><input id="vProvider" placeholder="deepseek"></div>
           <div class="form-row"><label>baseUrl</label><input id="vBaseUrl" placeholder="https://api.deepseek.com/v1"></div>
@@ -648,6 +649,7 @@ async function loadConfig(){
     const v = c.vision;
     document.getElementById('setCaptureMode').value = c.captureMode;
     document.getElementById('vEnabled').checked = !!v.enabled;
+    document.getElementById('vDisableThinking').checked = v.disableThinking !== false;
     document.getElementById('vProvider').value = v.provider || '';
     document.getElementById('vBaseUrl').value = v.baseUrl || '';
     document.getElementById('vModel').value = v.model || '';
@@ -692,6 +694,7 @@ async function saveConfig(restart){
     captureMode: document.getElementById('setCaptureMode').value,
     vision: {
       enabled: scb('vEnabled'),
+      disableThinking: scb('vDisableThinking'),
       provider: sval('vProvider'),
       baseUrl: sval('vBaseUrl'),
       model: sval('vModel'),

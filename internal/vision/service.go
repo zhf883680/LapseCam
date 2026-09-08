@@ -37,11 +37,12 @@ func New(cfg *config.Config) *Service {
 		return s
 	}
 	s.det = &openAICompatible{
-		baseURL: strings.TrimRight(cfg.Vision.BaseURL, "/"),
-		apiKey:  key,
-		model:   cfg.Vision.Model,
-		detail:  cfg.Vision.Detail,
-		timeout: cfg.Vision.Timeout,
+		baseURL:         strings.TrimRight(cfg.Vision.BaseURL, "/"),
+		apiKey:          key,
+		model:           cfg.Vision.Model,
+		detail:          cfg.Vision.Detail,
+		timeout:         cfg.Vision.Timeout,
+		disableThinking: cfg.Vision.DisableThinking,
 	}
 	return s
 }

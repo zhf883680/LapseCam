@@ -209,8 +209,9 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `cleanup.removeOrphans` | 清理孤儿数据，默认 `true` |
 | `vision.enabled` | AI 打印健康分析开关，默认 `false` |
 | `vision.provider/baseUrl/apiKey/model` | OpenAI 兼容接口：默认 deepseek / `https://api.deepseek.com/v1` / `deepseek-v4-flash-vision-exp`；换 OpenAI/OpenRouter 改这三项即可 |
-| `vision.timeout` | 单次分析超时，默认 `30s` |
+| `vision.timeout` | 单次分析超时，默认 `180s`（qwen 等慢模型可再放宽） |
 | `vision.detail` | 图片细节 `low/high/original/auto`，空=不传 |
+| `vision.disableThinking` | 关闭思考模式，默认 `true`（仅对千问/阿里云端点发 `enable_thinking:false`） |
 | `vision.analyzeFrames` | 每次分析取最近几张帧，默认 `5` |
 | `vision.minConfidence` | AI 判异常最低置信度，默认 `0.8` |
 | `vision.failureStreak` | 连续 N 次判异常才告警，默认 `2` |
@@ -275,7 +276,7 @@ vision:
   baseUrl: "https://api.deepseek.com/v1"
   apiKey: ""
   model: "deepseek-v4-flash-vision-exp"
-  timeout: 30s
+  timeout: 180s
   analyzeFrames: 5
   minConfidence: 0.8
   failureStreak: 2

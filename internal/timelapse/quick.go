@@ -208,6 +208,12 @@ func (s *Service) QuickRecordLayer(layer int) (LayerResult, error) {
 func appendLayerMarker(path string, m layerMarker) error {
 	layerMarkerMu.Lock()
 	defer layerMarkerMu.Unlock()
+	// 确保目录存在（帧目录由 worker 异步创建，层标记先到也能写）
+	if dir := filepath.Dir(path); dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return err
+		}
+	}
 	markers, err := loadLayerMarkersFile(path)
 	if err != nil {
 		return err

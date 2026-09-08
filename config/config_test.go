@@ -140,8 +140,11 @@ func TestVisionDefaults(t *testing.T) {
 	if cfg.Vision.Provider != "deepseek" || cfg.Vision.Model != "deepseek-v4-flash-vision-exp" {
 		t.Errorf("vision 默认 provider/model 异常: %+v", cfg.Vision)
 	}
-	if cfg.Vision.BaseURL != "https://api.deepseek.com/v1" || cfg.Vision.Timeout != 30_000_000_000 {
+	if cfg.Vision.BaseURL != "https://api.deepseek.com/v1" || cfg.Vision.Timeout != 180_000_000_000 {
 		t.Errorf("vision 默认 baseUrl/timeout 异常: %+v", cfg.Vision)
+	}
+	if !cfg.Vision.DisableThinking {
+		t.Error("disableThinking 默认应为 true（默认关思考，仅千问/阿里云生效）")
 	}
 	if cfg.Vision.AnalyzeFrames != 5 || cfg.Vision.MinConfidence != 0.8 ||
 		cfg.Vision.FailureStreak != 2 || cfg.Vision.CooldownSeconds != 300 {
