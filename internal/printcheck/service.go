@@ -473,7 +473,22 @@ func parseImgHostURL(body []byte, base string) (string, error) {
 	if !strings.HasPrefix(u, "http") {
 		u = base + u
 	}
-	return u, nil
+	return normalizeImgHostURL(u, base), nil
+}
+
+// normalizeImgHostURL 兜底：图床常用明文 http 返回 src，但实际走 TLS（如 https://host:120）。
+// 若返回 URL 为 http 且与配置的 https base 同源（host:port 一致），统一升级为 https，
+// 避免 Bark/浏览器拿到死链。
+func normalizeImgHostURL(u, base string) string {
+	if !strings.HasPrefix(u, "http://") || !strings.HasPrefix(base, "https://") {
+		return u
+	}
+	baseHost := strings.TrimPrefix(base, "https://")
+	rest := strings.TrimPrefix(u, "http://")
+	if i := strings.IndexByte(rest, '/'); i >= 0 && rest[:i] == baseHost {
+		return "https://" + rest
+	}
+	return u
 }
 
 // imgHostResp CloudFlare-ImgBed /upload 的响应（数组元素）。

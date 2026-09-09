@@ -231,3 +231,22 @@ func TestUploadAlertImage(t *testing.T) {
 		t.Errorf("disabled should return empty, got %q", u)
 	}
 }
+
+func TestNormalizeImgHostURL(t *testing.T) {
+	// 图床返回明文 http，但配置的 base 是 https 且同源 → 升级为 https
+	if got := normalizeImgHostURL("http://img.example.com:120/file/a.png", "https://img.example.com:120"); got != "https://img.example.com:120/file/a.png" {
+		t.Errorf("upgrade = %q", got)
+	}
+	// 不同源（host 不同）不升级
+	if got := normalizeImgHostURL("http://other.com/file/a.png", "https://img.example.com:120"); got != "http://other.com/file/a.png" {
+		t.Errorf("cross-host should not upgrade = %q", got)
+	}
+	// base 本身就是 http → 不升级
+	if got := normalizeImgHostURL("http://img.example.com:120/file/a.png", "http://img.example.com:120"); got != "http://img.example.com:120/file/a.png" {
+		t.Errorf("http base should not upgrade = %q", got)
+	}
+	// 已是 https → 不变
+	if got := normalizeImgHostURL("https://img.example.com:120/file/a.png", "https://img.example.com:120"); got != "https://img.example.com:120/file/a.png" {
+		t.Errorf("https stays = %q", got)
+	}
+}
