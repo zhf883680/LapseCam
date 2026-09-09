@@ -156,6 +156,7 @@ video{width:100%;border-radius:10px;background:#000}
           <div class="form-row"><label>minConfidence（0~1）</label><input id="vMinConf" type="number" step="0.05" min="0" max="1"></div>
           <div class="form-row"><label>failureStreak（连续几次判异常才告警）</label><input id="vStreak" type="number" min="1"></div>
           <div class="form-row"><label>最小分析间隔秒（层太快防频繁请求，0=不限）</label><input id="vInterval" type="number" min="0"></div>
+          <div class="form-row"><label>每任务最多分析次数（0=不限）</label><input id="vMaxChecks" type="number" min="0"></div>
           <div class="form-row"><label>cooldownSeconds（重复告警冷却）</label><input id="vCooldown" type="number" min="0"></div>
         </div>
       </div>
@@ -658,6 +659,7 @@ async function loadConfig(){
     document.getElementById('vDetail').value = v.detail || '';
     document.getElementById('vAnalyzeFrames').value = v.analyzeFrames;
     document.getElementById('vInterval').value = v.analyzeIntervalSec || 0;
+    document.getElementById('vMaxChecks').value = v.maxChecksPerTask || 0;
     document.getElementById('vMinConf').value = v.minConfidence;
     document.getElementById('vStreak').value = v.failureStreak;
     document.getElementById('vCooldown').value = v.cooldownSeconds;
@@ -704,6 +706,7 @@ async function saveConfig(restart){
       detail: sval('vDetail'),
       analyzeFrames: snum('vAnalyzeFrames'),
       analyzeIntervalSec: snum('vInterval'),
+      maxChecksPerTask: snum('vMaxChecks'),
       minConfidence: snum('vMinConf'),
       failureStreak: snum('vStreak'),
       cooldownSeconds: snum('vCooldown'),

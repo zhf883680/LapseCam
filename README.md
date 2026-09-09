@@ -179,6 +179,7 @@ vision:
 
   analyzeFrames: 5            # 每次把最近几张（层）发给模型，按你的打印节奏调
   analyzeIntervalSeconds: 30  # 两次 AI 分析的最小间隔（秒）：层太快时防频繁请求；0=不限
+  maxChecksPerTask: 50          # 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限
   minConfidence: 0.8          # AI 判异常所需最低置信度
   failureStreak: 3            # 连续 N 次判异常才告警（防误报，可调低到 2 求快）
   cooldownSeconds: 300        # 同一故障重复告警冷却

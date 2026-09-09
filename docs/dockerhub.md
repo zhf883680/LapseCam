@@ -66,6 +66,7 @@ vision:
   model: "deepseek-v4-flash-vision-exp"
   analyzeFrames: 5              # 每次取最近几张（层）
   analyzeIntervalSeconds: 30    # 两次分析最小间隔（层太快时防频繁请求）
+  maxChecksPerTask: 50          # 每个打印任务最多分析次数（异常通常前期就出现），0=不限
   failureStreak: 3              # 连续 3 次判异常才告警
   disableThinking: true         # 关闭思考模式（千问/阿里云生效）
   bark:

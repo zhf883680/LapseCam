@@ -67,6 +67,7 @@ type visionIn struct {
 	DisableThinking    *bool    `json:"disableThinking"`
 	AnalyzeFrames      *int     `json:"analyzeFrames"`
 	AnalyzeIntervalSec *int     `json:"analyzeIntervalSec"`
+	MaxChecksPerTask   *int     `json:"maxChecksPerTask"`
 	MinConfidence      *float64 `json:"minConfidence"`
 	FailureStreak      *int     `json:"failureStreak"`
 	CooldownSeconds    *int     `json:"cooldownSeconds"`
@@ -217,6 +218,9 @@ func (s *Server) applyConfigInput(in configInput) error {
 		}
 		if v.AnalyzeIntervalSec != nil && *v.AnalyzeIntervalSec >= 0 {
 			vc.AnalyzeIntervalSeconds = *v.AnalyzeIntervalSec
+		}
+		if v.MaxChecksPerTask != nil && *v.MaxChecksPerTask >= 0 {
+			vc.MaxChecksPerTask = *v.MaxChecksPerTask
 		}
 		if v.MinConfidence != nil && *v.MinConfidence > 0 {
 			vc.MinConfidence = *v.MinConfidence

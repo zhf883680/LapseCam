@@ -109,6 +109,7 @@ type VisionConfig struct {
 
 	AnalyzeFrames          int           `yaml:"analyzeFrames"`          // 每次分析取最近多少张帧（按时间/层数由你调）
 	AnalyzeIntervalSeconds int           `yaml:"analyzeIntervalSeconds"` // 两次 AI 分析的最小间隔（秒）：层太快时防止频繁请求，0=不限制
+	MaxChecksPerTask       int           `yaml:"maxChecksPerTask"`       // 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限制
 	MinConfidence          float64       `yaml:"minConfidence"`          // AI 判异常所需的最低置信度
 	FailureStreak          int           `yaml:"failureStreak"`          // 连续 N 次分析判异常才告警（防单次误报）
 	CooldownSeconds        int           `yaml:"cooldownSeconds"`        // 同一打印任务重复告警冷却（秒）
@@ -199,6 +200,7 @@ func Default() *Config {
 			DisableThinking:        true,
 			AnalyzeFrames:          5,
 			AnalyzeIntervalSeconds: 30,
+			MaxChecksPerTask:       50,
 			MinConfidence:          0.8,
 			FailureStreak:          3,
 			CooldownSeconds:        300,
@@ -327,6 +329,9 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Vision.AnalyzeIntervalSeconds < 0 {
 		c.Vision.AnalyzeIntervalSeconds = d.Vision.AnalyzeIntervalSeconds
+	}
+	if c.Vision.MaxChecksPerTask < 0 {
+		c.Vision.MaxChecksPerTask = d.Vision.MaxChecksPerTask
 	}
 	if c.Vision.MinConfidence <= 0 {
 		c.Vision.MinConfidence = d.Vision.MinConfidence

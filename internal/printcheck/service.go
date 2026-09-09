@@ -72,6 +72,16 @@ func (s *Service) CheckRecent(ctx context.Context, taskID int64) error {
 		s.lastRun[taskID] = time.Now()
 		s.mu.Unlock()
 	}
+	// 每个打印任务最多分析 maxChecksPerTask 次（异常通常前期就出现，省 token）
+	if max := s.cfg.Vision.MaxChecksPerTask; max > 0 {
+		s.mu.Lock()
+		if s.countChecks(taskID) >= max {
+			s.mu.Unlock()
+			return nil
+		}
+		s.mu.Unlock()
+	}
+
 	s.mu.Lock()
 	if s.busy[taskID] {
 		s.pending[taskID] = true
@@ -304,6 +314,13 @@ func (s *Service) trailingStreak(taskID int64) int {
 		streak++
 	}
 	return streak
+}
+
+// countChecks 该任务已产生的 AI 分析条数。
+func (s *Service) countChecks(taskID int64) int {
+	var n int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM vision_checks WHERE task_id=?`, taskID).Scan(&n)
+	return n
 }
 
 func (s *Service) lastAlertTime(taskID int64) time.Time {
