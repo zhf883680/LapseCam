@@ -33,6 +33,9 @@ func New(cfg *config.Config) *Service {
 		key = strings.TrimSpace(os.Getenv("VISION_API_KEY"))
 	}
 	if key == "" {
+		key = strings.TrimSpace(os.Getenv("DASHSCOPE_API_KEY"))
+	}
+	if key == "" {
 		log.Printf("[vision] vision.enabled=true 但未配置 apiKey 且环境变量 VISION_API_KEY 为空，AI 分析不可用")
 		return s
 	}
