@@ -8,6 +8,7 @@
 ## 功能特性
 
 - 🛰️ **AI 打印监控**：逐层截图后自动把最近 N 张帧发给 OpenAI 兼容视觉模型（默认 DeepSeek，可换阿里云千问 qwen 等），识别炒面 / 堵头 / 打印件被拖走；连续多次判异常才告警（防误报），支持 **Bark（支持自建服务）+ Webhook**
+- 🖼️ **告警现场图上传图床**：确认故障时把现场图上传到自建图床（CloudFlare-ImgBed / S3 / Telegram / WebDAV），Bark 推送带图、Webhook 给公开 URL
 - 🤖 **为 Home Assistant 而生**：固定 URL 的快捷录制接口，重复调用幂等；打印开始即录、结束/暂停即停并出片
 - 🖨️ **拓竹 A1 逐层截图**：床滑式专用，`layer`（每层抓一帧）/ `timestamp`（记录层时刻选帧）两种按层模式，成片不再左右横跳
 - 🌅 **日常延时摄影**：秒级抽帧、可设开始/结束时间，到点自动拍、结束自动出片
@@ -76,11 +77,17 @@ vision:
   webhook:
     enabled: true
     url: "http://homeassistant:8123/api/webhook/lapsecam-print"
+  imageHost:                # 可选：告警时把现场图上传到自建图床
+    enabled: true
+    baseUrl: "https://img.example.com"   # 图床站点，不加结尾斜杠
+    apiKey: ""              # API Token（Bearer）；留空读 IMAGE_HOST_API_KEY
+    uploadChannel: "cfr2"   # telegram/cfr2/s3/discord/huggingface/webdav
+    uploadFolder: "lapsecam"
 ```
 
 - HA 每层变化调用 `POST /api/quick/snapshot?layer=N` → 自动截图并分析最近 N 张
 - 判异常的现场图自动留存（`data/vision/…`，出片删中间帧不影响）
-- 告警支持 **Bark 文字推送**（可自建服务）与 **Webhook**（Home Assistant）
+- 告警支持 **Bark 推送**（可自建服务，开启图床后带现场图）与 **Webhook**（Home Assistant）
 - 审计记录可在 Web 后台「🛰️ AI 监控」查看；配置可在「⚙️ 设置」页直接改
 
 > 详细接口与配置见项目 [API 与配置参考](https://github.com/zhf883680/LapseCam/blob/master/docs/api.md)。

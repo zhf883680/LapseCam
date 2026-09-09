@@ -107,14 +107,15 @@ type VisionConfig struct {
 	Detail          string        `yaml:"detail"`          // 图片细节 low/high/original/auto，空=不传（默认 original）
 	DisableThinking bool          `yaml:"disableThinking"` // 关闭思考模式（qwen3 等默认开 thinking，又慢又贵；仅对千问/阿里云生效）
 
-	AnalyzeFrames          int           `yaml:"analyzeFrames"`          // 每次分析取最近多少张帧（按时间/层数由你调）
-	AnalyzeIntervalSeconds int           `yaml:"analyzeIntervalSeconds"` // 两次 AI 分析的最小间隔（秒）：层太快时防止频繁请求，0=不限制
-	MaxChecksPerTask       int           `yaml:"maxChecksPerTask"`       // 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限制
-	MinConfidence          float64       `yaml:"minConfidence"`          // AI 判异常所需的最低置信度
-	FailureStreak          int           `yaml:"failureStreak"`          // 连续 N 次分析判异常才告警（防单次误报）
-	CooldownSeconds        int           `yaml:"cooldownSeconds"`        // 同一打印任务重复告警冷却（秒）
-	Webhook                WebhookConfig `yaml:"webhook"`                // 告警回调（Home Assistant 等）
-	Bark                   BarkConfig    `yaml:"bark"`                   // Bark 推送（iOS 通知，可选）
+	AnalyzeFrames          int             `yaml:"analyzeFrames"`          // 每次分析取最近多少张帧（按时间/层数由你调）
+	AnalyzeIntervalSeconds int             `yaml:"analyzeIntervalSeconds"` // 两次 AI 分析的最小间隔（秒）：层太快时防止频繁请求，0=不限制
+	MaxChecksPerTask       int             `yaml:"maxChecksPerTask"`       // 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限制
+	MinConfidence          float64         `yaml:"minConfidence"`          // AI 判异常所需的最低置信度
+	FailureStreak          int             `yaml:"failureStreak"`          // 连续 N 次分析判异常才告警（防单次误报）
+	CooldownSeconds        int             `yaml:"cooldownSeconds"`        // 同一打印任务重复告警冷却（秒）
+	Webhook                WebhookConfig   `yaml:"webhook"`                // 告警回调（Home Assistant 等）
+	Bark                   BarkConfig      `yaml:"bark"`                   // Bark 推送（iOS 通知，可选）
+	ImageHost              ImageHostConfig `yaml:"imageHost"`              // 告警现场图上传图床（CloudFlare-ImgBed）
 }
 
 // BarkConfig Bark 推送（https://bark.day.app）。只发文字，不带图片。
@@ -125,6 +126,21 @@ type BarkConfig struct {
 	Level   string `yaml:"level"`   // active/timeSensitive/critical，空=默认 active
 	Volume  int    `yaml:"volume"`  // 重要警告（critical）音量 0-10，0=不传（Bark 默认 5）
 	BaseURL string `yaml:"baseUrl"` // 默认 https://api.day.app（自建 Bark 服务可改）
+}
+
+// ImageHostConfig 告警现场图上传到自建图床（CloudFlare-ImgBed 的 /upload 兼容接口）。
+// 告警命中后上传现场图，拿到公开 URL 可随 Bark（image 字段）/ Webhook 一起推送。
+type ImageHostConfig struct {
+	Enabled       bool          `yaml:"enabled"`       // 是否启用图床上传
+	Provider      string        `yaml:"provider"`      // 图床类型，当前支持 cloudflare-imgbed
+	BaseURL       string        `yaml:"baseUrl"`       // 图床站点地址（不带结尾斜杠），如 https://img.example.com
+	APIKey        string        `yaml:"apiKey"`        // API Token（Bearer）；留空读环境变量 IMAGE_HOST_API_KEY
+	AuthCode      string        `yaml:"authCode"`      // 上传认证码（与 APIKey 二选一）
+	UploadChannel string        `yaml:"uploadChannel"` // 存储渠道：telegram/cfr2/s3/discord/webdav/huggingface，默认 cfr2
+	ChannelName   string        `yaml:"channelName"`   // 多渠道场景指定渠道名（可空）
+	UploadFolder  string        `yaml:"uploadFolder"`  // 上传目录（相对路径），如 lapsecam
+	ReturnFormat  string        `yaml:"returnFormat"`  // default（/file/id）| full（完整链接），默认 full
+	Timeout       time.Duration `yaml:"timeout"`       // 上传超时
 }
 
 // WebhookConfig 故障告警 Webhook。
@@ -207,6 +223,10 @@ func Default() *Config {
 			CooldownSeconds:        300,
 			Webhook:                WebhookConfig{Enabled: false},
 			Bark:                   BarkConfig{Enabled: false, BaseURL: "https://api.day.app"},
+			ImageHost: ImageHostConfig{
+				Enabled: false, Provider: "cloudflare-imgbed", UploadChannel: "cfr2",
+				ReturnFormat: "full", Timeout: 30 * time.Second,
+			},
 		},
 	}
 }
@@ -345,6 +365,18 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Vision.Bark.BaseURL == "" {
 		c.Vision.Bark.BaseURL = d.Vision.Bark.BaseURL
+	}
+	if c.Vision.ImageHost.Provider == "" {
+		c.Vision.ImageHost.Provider = d.Vision.ImageHost.Provider
+	}
+	if c.Vision.ImageHost.UploadChannel == "" {
+		c.Vision.ImageHost.UploadChannel = d.Vision.ImageHost.UploadChannel
+	}
+	if c.Vision.ImageHost.ReturnFormat == "" {
+		c.Vision.ImageHost.ReturnFormat = d.Vision.ImageHost.ReturnFormat
+	}
+	if c.Vision.ImageHost.Timeout <= 0 {
+		c.Vision.ImageHost.Timeout = d.Vision.ImageHost.Timeout
 	}
 }
 

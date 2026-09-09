@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -167,5 +168,66 @@ func TestLatestAndList(t *testing.T) {
 	// 按时间倒序：最新在前
 	if checks[0].ID < checks[1].ID {
 		t.Error("list should be newest first")
+	}
+}
+
+func TestUploadAlertImage(t *testing.T) {
+	s, cleanup := newTestService(t)
+	defer cleanup()
+
+	dir := t.TempDir()
+	img := filepath.Join(dir, "x.jpg")
+	if err := os.WriteFile(img, []byte("jpegdata"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 构建请求：URL 路径、鉴权头、query、file 字段
+	s.cfg.Vision.ImageHost = config.ImageHostConfig{
+		Enabled: true, BaseURL: "https://img.example.com", APIKey: "test-token",
+		AuthCode: "code1", UploadChannel: "cfr2", UploadFolder: "lapsecam",
+		ReturnFormat: "full",
+	}
+	req, err := s.buildImgHostRequest(s.cfg.Vision.ImageHost, img)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.URL.Path != "/upload" {
+		t.Errorf("path = %s", req.URL.Path)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer test-token" {
+		t.Errorf("auth header = %q", got)
+	}
+	q := req.URL.Query()
+	if q.Get("uploadChannel") != "cfr2" || q.Get("uploadFolder") != "lapsecam" ||
+		q.Get("returnFormat") != "full" || q.Get("authCode") != "code1" {
+		t.Errorf("query = %v", q)
+	}
+	if ct := req.Header.Get("Content-Type"); !strings.HasPrefix(ct, "multipart/form-data") {
+		t.Errorf("content-type = %q", ct)
+	}
+
+	// 解析响应：优先 publicUrl；否则相对 src 用 base 拼接
+	u, err := parseImgHostURL([]byte(`[{"src":"/file/abc.jpg","publicUrl":"https://img.example.com/abc.jpg"}]`), "https://img.example.com")
+	if err != nil || u != "https://img.example.com/abc.jpg" {
+		t.Errorf("parse publicUrl = %q, err %v", u, err)
+	}
+	u, err = parseImgHostURL([]byte(`[{"src":"/file/rel.jpg"}]`), "https://img.example.com")
+	if err != nil || u != "https://img.example.com/file/rel.jpg" {
+		t.Errorf("parse relative src = %q, err %v", u, err)
+	}
+	if _, err = parseImgHostURL([]byte(`[]`), "https://img.example.com"); err == nil {
+		t.Error("empty array should error")
+	}
+
+	// baseUrl 为空 → 报错；未启用 → 不请求返回空
+	if _, err = s.buildImgHostRequest(config.ImageHostConfig{BaseURL: "", APIKey: "t"}, img); err == nil {
+		t.Error("empty baseUrl should error")
+	}
+	if _, err = s.buildImgHostRequest(config.ImageHostConfig{BaseURL: "https://img.example.com"}, img); err == nil {
+		t.Error("no apiKey/authCode should error")
+	}
+	s.cfg.Vision.ImageHost.Enabled = false
+	if u, _ := s.uploadAlertImage(img); u != "" {
+		t.Errorf("disabled should return empty, got %q", u)
 	}
 }

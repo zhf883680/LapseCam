@@ -132,8 +132,12 @@ Webhook 载荷（POST JSON）：
 }
 ```
 
-> Bark 推送（`vision.bark.enabled=true` 时）：确认故障后同样发一条文字推送，标题为状态中文名
-> （如「3D 打印异常：炒面」），正文为 AI reason + 置信度；当前版本不带图片。
+> Bark 推送（`vision.bark.enabled=true` 时）：确认故障后同样发一条推送，标题为状态中文名
+> （如「3D 打印异常：炒面」），正文为 AI reason + 置信度；若同时开启 `vision.imageHost`，
+> 现场图会先上传图床，Bark 推送带 `image`（iOS 长按通知可见）。
+>
+> 图床上传（`vision.imageHost.enabled=true` 时）：确认故障（达到告警阈值）后把现场图上传到
+> CloudFlare-ImgBed 的 `/upload` 接口，返回的公开 URL 会同时用于 Bark `image` 与 Webhook `image` 字段。
 >
 > 现场图留存：只要某次分析判为异常（不一定要达到告警阈值），就把最新一帧复制到
 > `data/vision/task-{id}/events/`，出片清理中间帧不影响这份副本；审计记录 `imageUrl` 始终可访问。
@@ -223,6 +227,17 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `vision.bark.group/level` | Bark 通知分组 / 中断级别（`active`/`timeSensitive`/`critical`） |
 | `vision.bark.volume` | 重要警告音量 0-10（`level: critical` 时生效），`0`=不传（Bark 默认 5） |
 | `vision.bark.baseUrl` | 默认 `https://api.day.app`（自建 Bark 可改） |
+| `vision.bark.*` | Bark 通知分组 / 中断级别 / 音量（见上） |
+| `vision.imageHost.enabled` | 告警时把现场图上传图床，默认 `false` |
+| `vision.imageHost.provider` | 图床类型，当前支持 `cloudflare-imgbed` |
+| `vision.imageHost.baseUrl` | 图床站点地址（不带结尾斜杠），如 `https://img.example.com` |
+| `vision.imageHost.apiKey` | 图床 API Token（Bearer），留空读环境变量 `IMAGE_HOST_API_KEY` |
+| `vision.imageHost.authCode` | 上传认证码（与 apiKey 二选一） |
+| `vision.imageHost.uploadChannel` | 存储渠道：`cfr2`（默认）/ `telegram` / `s3` / `discord` / `huggingface` / `webdav` |
+| `vision.imageHost.channelName` | 多渠道场景指定渠道名（可空） |
+| `vision.imageHost.uploadFolder` | 上传目录（相对路径），可空 |
+| `vision.imageHost.returnFormat` | 返回格式 `default`（/file/id）| `full`（完整链接），默认 `full` |
+| `vision.imageHost.timeout` | 上传超时，默认 `30s` |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：
 
@@ -287,6 +302,16 @@ vision:
   webhook:
     enabled: false
     url: ""
+  imageHost:
+    enabled: false
+    provider: "cloudflare-imgbed"
+    baseUrl: ""
+    apiKey: ""
+    authCode: ""
+    uploadChannel: "cfr2"
+    uploadFolder: ""
+    returnFormat: "full"
+    timeout: 30s
 ```
 
 ## 项目结构

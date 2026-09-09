@@ -34,6 +34,7 @@ type visionView struct {
 	DisableThinking    bool    `json:"disableThinking"`
 	AnalyzeFrames      int     `json:"analyzeFrames"`
 	AnalyzeIntervalSec int     `json:"analyzeIntervalSec"`
+	MaxChecksPerTask   int     `json:"maxChecksPerTask"`
 	MinConfidence      float64 `json:"minConfidence"`
 	FailureStreak      int     `json:"failureStreak"`
 	CooldownSeconds    int     `json:"cooldownSeconds"`
@@ -48,6 +49,13 @@ type visionView struct {
 	BarkLevel   string `json:"barkLevel"`
 	BarkVolume  int    `json:"barkVolume"`
 	BarkBaseURL string `json:"barkBaseUrl"`
+
+	ImageHostEnabled   bool   `json:"imageHostEnabled"`
+	ImageHostProvider  string `json:"imageHostProvider"`
+	ImageHostBaseURL   string `json:"imageHostBaseUrl"`
+	ImageHostAPIKeySet bool   `json:"imageHostApiKeySet"`
+	ImageHostChannel   string `json:"imageHostChannel"`
+	ImageHostFolder    string `json:"imageHostFolder"`
 }
 
 // configInput PUT /api/config 的入参（字段缺省 = 不修改）。
@@ -82,6 +90,14 @@ type visionIn struct {
 	BarkLevel   *string `json:"barkLevel"`
 	BarkVolume  *int    `json:"barkVolume"`
 	BarkBaseURL *string `json:"barkBaseUrl"`
+
+	ImageHostEnabled     *bool   `json:"imageHostEnabled"`
+	ImageHostBaseURL     *string `json:"imageHostBaseUrl"`
+	ImageHostAPIKey      *string `json:"imageHostApiKey"`
+	ImageHostAuthCode    *string `json:"imageHostAuthCode"`
+	ImageHostChannel     *string `json:"imageHostChannel"`
+	ImageHostChannelName *string `json:"imageHostChannelName"`
+	ImageHostFolder      *string `json:"imageHostFolder"`
 }
 
 // getConfig 返回当前生效的 AI/监控配置（用于页面表单回填）。
@@ -103,6 +119,7 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 			DisableThinking:    vc.DisableThinking,
 			AnalyzeFrames:      vc.AnalyzeFrames,
 			AnalyzeIntervalSec: vc.AnalyzeIntervalSeconds,
+			MaxChecksPerTask:   vc.MaxChecksPerTask,
 			MinConfidence:      vc.MinConfidence,
 			FailureStreak:      vc.FailureStreak,
 			CooldownSeconds:    vc.CooldownSeconds,
@@ -113,6 +130,12 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 			BarkGroup:          vc.Bark.Group,
 			BarkLevel:          vc.Bark.Level,
 			BarkBaseURL:        vc.Bark.BaseURL,
+			ImageHostEnabled:   vc.ImageHost.Enabled,
+			ImageHostProvider:  vc.ImageHost.Provider,
+			ImageHostBaseURL:   vc.ImageHost.BaseURL,
+			ImageHostAPIKeySet: vc.ImageHost.APIKey != "",
+			ImageHostChannel:   vc.ImageHost.UploadChannel,
+			ImageHostFolder:    vc.ImageHost.UploadFolder,
 		},
 	}
 	writeJSON(w, http.StatusOK, view)
@@ -256,6 +279,31 @@ func (s *Server) applyConfigInput(in configInput) error {
 		}
 		// Key：为空表示“不修改”，沿用文件里已存的（不把环境变量的 key 落盘）
 		stored := storedKeys(raw)
+		if v.ImageHostEnabled != nil {
+			vc.ImageHost.Enabled = *v.ImageHostEnabled
+		}
+		if v.ImageHostBaseURL != nil {
+			vc.ImageHost.BaseURL = strings.TrimSpace(*v.ImageHostBaseURL)
+		}
+		if v.ImageHostChannel != nil && strings.TrimSpace(*v.ImageHostChannel) != "" {
+			vc.ImageHost.UploadChannel = strings.TrimSpace(*v.ImageHostChannel)
+		}
+		if v.ImageHostChannelName != nil {
+			vc.ImageHost.ChannelName = strings.TrimSpace(*v.ImageHostChannelName)
+		}
+		if v.ImageHostFolder != nil {
+			vc.ImageHost.UploadFolder = strings.TrimSpace(*v.ImageHostFolder)
+		}
+		if v.ImageHostAPIKey != nil && strings.TrimSpace(*v.ImageHostAPIKey) != "" {
+			vc.ImageHost.APIKey = strings.TrimSpace(*v.ImageHostAPIKey)
+		} else {
+			vc.ImageHost.APIKey = stored.imageHostAPIKey
+		}
+		if v.ImageHostAuthCode != nil && strings.TrimSpace(*v.ImageHostAuthCode) != "" {
+			vc.ImageHost.AuthCode = strings.TrimSpace(*v.ImageHostAuthCode)
+		} else {
+			vc.ImageHost.AuthCode = stored.imageHostAuthCode
+		}
 		if v.APIKey != nil && strings.TrimSpace(*v.APIKey) != "" {
 			vc.APIKey = strings.TrimSpace(*v.APIKey)
 		} else {
@@ -286,8 +334,10 @@ func (s *Server) applyConfigInput(in configInput) error {
 }
 
 type storedKeysT struct {
-	visionKey string
-	barkKey   string
+	visionKey         string
+	barkKey           string
+	imageHostAPIKey   string
+	imageHostAuthCode string
 }
 
 // storedKeys 从配置文件里读出已保存的 vision.apiKey / bark.key（不回传、仅合并用）。
@@ -298,29 +348,36 @@ func storedKeys(raw []byte) storedKeysT {
 			Bark   struct {
 				Key string `yaml:"key"`
 			} `yaml:"bark"`
+			ImageHost struct {
+				APIKey   string `yaml:"apiKey"`
+				AuthCode string `yaml:"authCode"`
+			} `yaml:"imageHost"`
 		} `yaml:"vision"`
 	}
 	_ = yaml.Unmarshal(raw, &cur)
-	return storedKeysT{visionKey: cur.Vision.APIKey, barkKey: cur.Vision.Bark.Key}
+	return storedKeysT{visionKey: cur.Vision.APIKey, barkKey: cur.Vision.Bark.Key,
+		imageHostAPIKey: cur.Vision.ImageHost.APIKey, imageHostAuthCode: cur.Vision.ImageHost.AuthCode}
 }
 
 // visionYAML 用于把 vision 配置写成可读的 YAML（timeout 用 "30s" 形式，而非纳秒数字）。
 type visionYAML struct {
-	Enabled                bool        `yaml:"enabled"`
-	Provider               string      `yaml:"provider"`
-	BaseURL                string      `yaml:"baseUrl"`
-	APIKey                 string      `yaml:"apiKey"`
-	Model                  string      `yaml:"model"`
-	Timeout                string      `yaml:"timeout"`
-	Detail                 string      `yaml:"detail"`
-	DisableThinking        bool        `yaml:"disableThinking"`
-	AnalyzeFrames          int         `yaml:"analyzeFrames"`
-	AnalyzeIntervalSeconds int         `yaml:"analyzeIntervalSeconds"`
-	MinConfidence          float64     `yaml:"minConfidence"`
-	FailureStreak          int         `yaml:"failureStreak"`
-	CooldownSeconds        int         `yaml:"cooldownSeconds"`
-	Webhook                webhookYAML `yaml:"webhook"`
-	Bark                   barkYAML    `yaml:"bark"`
+	Enabled                bool          `yaml:"enabled"`
+	Provider               string        `yaml:"provider"`
+	BaseURL                string        `yaml:"baseUrl"`
+	APIKey                 string        `yaml:"apiKey"`
+	Model                  string        `yaml:"model"`
+	Timeout                string        `yaml:"timeout"`
+	Detail                 string        `yaml:"detail"`
+	DisableThinking        bool          `yaml:"disableThinking"`
+	AnalyzeFrames          int           `yaml:"analyzeFrames"`
+	AnalyzeIntervalSeconds int           `yaml:"analyzeIntervalSeconds"`
+	MaxChecksPerTask       int           `yaml:"maxChecksPerTask"`
+	MinConfidence          float64       `yaml:"minConfidence"`
+	FailureStreak          int           `yaml:"failureStreak"`
+	CooldownSeconds        int           `yaml:"cooldownSeconds"`
+	Webhook                webhookYAML   `yaml:"webhook"`
+	Bark                   barkYAML      `yaml:"bark"`
+	ImageHost              imageHostYAML `yaml:"imageHost"`
 }
 
 type webhookYAML struct {
@@ -337,10 +394,27 @@ type barkYAML struct {
 	BaseURL string `yaml:"baseUrl"`
 }
 
+type imageHostYAML struct {
+	Enabled       bool   `yaml:"enabled"`
+	Provider      string `yaml:"provider"`
+	BaseURL       string `yaml:"baseUrl"`
+	APIKey        string `yaml:"apiKey"`
+	AuthCode      string `yaml:"authCode"`
+	UploadChannel string `yaml:"uploadChannel"`
+	ChannelName   string `yaml:"channelName"`
+	UploadFolder  string `yaml:"uploadFolder"`
+	ReturnFormat  string `yaml:"returnFormat"`
+	Timeout       string `yaml:"timeout"`
+}
+
 func marshalVision(vc config.VisionConfig) (string, error) {
 	sec := int(vc.Timeout / time.Second)
 	if sec <= 0 {
 		sec = 30
+	}
+	ihSec := int(vc.ImageHost.Timeout / time.Second)
+	if ihSec <= 0 {
+		ihSec = 30
 	}
 	v := visionYAML{
 		Enabled:                vc.Enabled,
@@ -353,6 +427,7 @@ func marshalVision(vc config.VisionConfig) (string, error) {
 		DisableThinking:        vc.DisableThinking,
 		AnalyzeFrames:          vc.AnalyzeFrames,
 		AnalyzeIntervalSeconds: vc.AnalyzeIntervalSeconds,
+		MaxChecksPerTask:       vc.MaxChecksPerTask,
 		MinConfidence:          vc.MinConfidence,
 		FailureStreak:          vc.FailureStreak,
 		CooldownSeconds:        vc.CooldownSeconds,
@@ -360,6 +435,13 @@ func marshalVision(vc config.VisionConfig) (string, error) {
 		Bark: barkYAML{
 			Enabled: vc.Bark.Enabled, Key: vc.Bark.Key, Group: vc.Bark.Group,
 			Level: vc.Bark.Level, Volume: vc.Bark.Volume, BaseURL: vc.Bark.BaseURL,
+		},
+		ImageHost: imageHostYAML{
+			Enabled: vc.ImageHost.Enabled, Provider: vc.ImageHost.Provider, BaseURL: vc.ImageHost.BaseURL,
+			APIKey: vc.ImageHost.APIKey, AuthCode: vc.ImageHost.AuthCode,
+			UploadChannel: vc.ImageHost.UploadChannel, ChannelName: vc.ImageHost.ChannelName,
+			UploadFolder: vc.ImageHost.UploadFolder, ReturnFormat: vc.ImageHost.ReturnFormat,
+			Timeout: fmt.Sprintf("%ds", ihSec),
 		},
 	}
 	var buf bytes.Buffer

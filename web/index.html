@@ -178,6 +178,21 @@ video{width:100%;border-radius:10px;background:#000}
       </div>
 
       <div class="panel">
+        <h3>告警现场图上传图床（CloudFlare-ImgBed）</h3>
+        <div class="form-check"><input type="checkbox" id="ihEnabled"><label style="margin:0">启用：告警时把现场图上传到图床，并随 Bark / Webhook 推送图片 URL</label></div>
+        <div class="row">
+          <div class="form-row"><label>baseUrl（图床站点，不加结尾斜杠）</label><input id="ihBaseUrl" placeholder="https://img.example.com"></div>
+          <div class="form-row"><label>API Token（留空不修改）</label><input id="ihApiKey" placeholder=""></div>
+        </div>
+        <div class="row">
+          <div class="form-row"><label>authCode（上传认证码，与 Token 二选一）</label><input id="ihAuthCode" placeholder=""></div>
+          <div class="form-row"><label>uploadChannel</label><input id="ihChannel" placeholder="cfr2"></div>
+          <div class="form-row"><label>uploadFolder（目录，可空）</label><input id="ihFolder" placeholder="lapsecam"></div>
+        </div>
+        <div class="muted" style="font-size:12px">存储渠道默认 cfr2（Cloudflare R2）；也可 telegram / s3 / discord / huggingface / webdav。</div>
+      </div>
+
+      <div class="panel">
         <h3>其他设置（server / quick / scheduler / cleanup / preview / ffmpeg …）</h3>
         <div class="form-row"><label>直接编辑除 vision 外的其它配置（YAML 原文）；AI 相关请用上方表单。保存后需重启生效。</label>
         <textarea id="otherCfg" rows="20" spellcheck="false"></textarea></div>
@@ -672,6 +687,13 @@ async function loadConfig(){
     document.getElementById('bBaseUrl').value = v.barkBaseUrl || '';
     document.getElementById('bGroup').value = v.barkGroup || '';
     document.getElementById('bLevel').value = v.barkLevel || '';
+    document.getElementById('ihEnabled').checked = !!v.imageHostEnabled;
+    document.getElementById('ihBaseUrl').value = v.imageHostBaseUrl || '';
+    document.getElementById('ihApiKey').value = '';
+    document.getElementById('ihApiKey').placeholder = v.imageHostApiKeySet ? '已设置（留空不修改）' : '未设置（可填或使用环境变量）';
+    document.getElementById('ihAuthCode').value = '';
+    document.getElementById('ihChannel').value = v.imageHostChannel || 'cfr2';
+    document.getElementById('ihFolder').value = v.imageHostFolder || '';
     document.getElementById('otherCfg').value = c.others || '';
     document.getElementById('cfgHint').textContent = c.aiEnabled
       ? '当前 AI 已启用。改动后点「保存并重启生效」；服务由 systemd/Docker 自动拉起。'
@@ -718,7 +740,13 @@ async function saveConfig(restart){
       barkBaseUrl: sval('bBaseUrl'),
       barkGroup: sval('bGroup'),
       barkLevel: sval('bLevel'),
-      barkVolume: Math.max(0, Math.min(10, parseInt(document.getElementById('bVolume').value || '0', 10)))
+      barkVolume: Math.max(0, Math.min(10, parseInt(document.getElementById('bVolume').value || '0', 10))),
+      imageHostEnabled: scb('ihEnabled'),
+      imageHostBaseUrl: sval('ihBaseUrl'),
+      imageHostApiKey: document.getElementById('ihApiKey').value.trim(),
+      imageHostAuthCode: document.getElementById('ihAuthCode').value.trim(),
+      imageHostChannel: sval('ihChannel'),
+      imageHostFolder: sval('ihFolder')
     }
   };
   try{

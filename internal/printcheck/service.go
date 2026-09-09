@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -158,6 +160,14 @@ func (s *Service) CheckRecent(ctx context.Context, taskID int64) error {
 	c := Check{
 		ID: id, TaskID: taskID, Status: res.Status, Confidence: res.Confidence,
 		Reason: res.Reason, ImagePath: imgPath, Alert: true, CreatedAt: now,
+	}
+	// 告警命中后，把现场图上传到图床（若启用），拿到公开 URL 随 Bark/Webhook 一起推送
+	if imgPath != "" {
+		if u, uErr := s.uploadAlertImage(imgPath); uErr != nil {
+			log.Printf("[printcheck] upload alert image failed: %v", uErr)
+		} else if u != "" {
+			c.ImageHostURL = u
+		}
 	}
 	s.sendWebhook(taskID, c)
 	s.sendBark(c)
@@ -348,6 +358,137 @@ func (s *Service) saveCheckImage(taskID int64, data []byte, status string, when 
 	return path, nil
 }
 
+// uploadAlertImage 把告警现场图上传到自建图床（CloudFlare-ImgBed 的 /upload 兼容接口），
+// 返回公开访问 URL；未启用或失败时返回空串。
+func (s *Service) uploadAlertImage(path string) (string, error) {
+	h := s.cfg.Vision.ImageHost
+	if !h.Enabled {
+		return "", nil
+	}
+	req, err := s.buildImgHostRequest(h, path)
+	if err != nil {
+		return "", err
+	}
+	timeout := h.Timeout
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	req = req.WithContext(ctx)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return "", fmt.Errorf("上传图床失败 HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return parseImgHostURL(body, strings.TrimRight(strings.TrimSpace(h.BaseURL), "/"))
+}
+
+// buildImgHostRequest 按 CloudFlare-ImgBed 的 /upload 契约组装 multipart 请求（纯函数，便于单测）。
+// 用「部分上传 + 认证码/Token」：Authorization: Bearer <API_TOKEN> 或 ?authCode=<AUTH_CODE>。
+func (s *Service) buildImgHostRequest(h config.ImageHostConfig, path string) (*http.Request, error) {
+	base := strings.TrimRight(strings.TrimSpace(h.BaseURL), "/")
+	if base == "" {
+		return nil, errors.New("imageHost.baseUrl 未配置")
+	}
+	apiKey := strings.TrimSpace(h.APIKey)
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(os.Getenv("IMAGE_HOST_API_KEY"))
+	}
+	authCode := strings.TrimSpace(h.AuthCode)
+	if apiKey == "" && authCode == "" {
+		return nil, errors.New("imageHost 需要 apiKey 或 authCode")
+	}
+	channel := ifEmpty(h.UploadChannel, "cfr2")
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	part, err := mw.CreateFormFile("file", filepath.Base(path))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return nil, err
+	}
+	if err := mw.Close(); err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, base+"/upload", &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+	}
+	q := req.URL.Query()
+	if authCode != "" {
+		q.Set("authCode", authCode)
+	}
+	q.Set("uploadChannel", channel)
+	if n := strings.TrimSpace(h.ChannelName); n != "" {
+		q.Set("channelName", n)
+	}
+	if n := strings.TrimSpace(h.UploadFolder); n != "" {
+		q.Set("uploadFolder", n)
+	}
+	q.Set("returnFormat", ifEmpty(h.ReturnFormat, "full"))
+	q.Set("uploadNameType", "default")
+	req.URL.RawQuery = q.Encode()
+	return req, nil
+}
+
+// parseImgHostURL 解析 /upload 返回的 JSON 数组，取公开图片 URL（纯函数，便于单测）。
+func parseImgHostURL(body []byte, base string) (string, error) {
+	var out []imgHostResp
+	if err := json.Unmarshal(body, &out); err != nil {
+		return "", err
+	}
+	if len(out) == 0 {
+		return "", errors.New("图床返回为空")
+	}
+	u := strings.TrimSpace(out[0].PublicURL)
+	if u == "" {
+		u = strings.TrimSpace(out[0].Src)
+	}
+	if u == "" {
+		return "", errors.New("图床未返回图片地址")
+	}
+	if !strings.HasPrefix(u, "http") {
+		u = base + u
+	}
+	return u, nil
+}
+
+// imgHostResp CloudFlare-ImgBed /upload 的响应（数组元素）。
+type imgHostResp struct {
+	Src       string `json:"src"`
+	PublicURL string `json:"publicUrl"`
+}
+
+func ifEmpty(v, def string) string {
+	if strings.TrimSpace(v) == "" {
+		return def
+	}
+	return v
+}
+
 // sendWebhook 推送告警（失败只记日志，不影响截图流程）。
 func (s *Service) sendWebhook(taskID int64, c Check) {
 	wh := s.cfg.Vision.Webhook
@@ -362,7 +503,12 @@ func (s *Service) sendWebhook(taskID int64, c Check) {
 		"timestamp":  c.CreatedAt.Local().Format(time.RFC3339),
 	}
 	if c.ID > 0 {
-		payload["image"] = fmt.Sprintf("/api/quick/checks/%d/image", c.ID)
+		if c.ImageHostURL != "" {
+			// 已上传图床：优先给公开 URL，便于外部直接打开现场图
+			payload["image"] = c.ImageHostURL
+		} else {
+			payload["image"] = fmt.Sprintf("/api/quick/checks/%d/image", c.ID)
+		}
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {

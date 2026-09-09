@@ -11,6 +11,7 @@
 ## ✨ 功能亮点
 
 - 🛰️ **AI 打印监控（Vision Monitor）**：逐层截图后自动把最近 N 张帧发给 OpenAI 兼容视觉模型（默认 DeepSeek），识别炒面 / 堵头 / 打印件被拖走 / 积料 / 喷嘴碰撞；连续多次判异常才告警（防误报），支持 Bark（可自建服务）+ Webhook 通知
+- 🖼️ **告警现场图上传图床**：确认故障时把现场图上传到自建图床（CloudFlare-ImgBed / S3 / Telegram / WebDAV），Bark 推送带图、Webhook 给公开 URL——手机长按通知即可看现场
 - **为 Home Assistant 而生**：固定 URL 的快捷录制接口，自动化里写死即可，重复调用幂等；打印开始即录、结束/暂停即停并出片
 - **拓竹 A1 逐层截图**：床滑式打印机专用，`layer`（每层抓一帧）/ `timestamp`（记录层时刻选帧）两种按层模式，成片不再左右横跳
 - **日常延时摄影**：秒级抽帧、可设开始/结束时间，到点自动拍、结束自动出片；也能让 HA 按日出日落每天自动生成一条当日延时
@@ -128,7 +129,7 @@ normal / spaghetti(炒面) / clog(堵头) / object_displaced(被拖走)
 异常 = AI 状态属于异常集合 且 置信度 ≥ minConfidence(0.8)
 连续 failureStreak(3) 次判异常 → 确认故障（同一故障带冷却，不轰炸）
    │
-   ├── 📲 Bark 推送（支持自建 Bark 服务，当前文字通知）
+   ├── 📲 Bark 推送（支持自建服务，可带现场图 URL）
    └── 🔔 Webhook → Home Assistant → 暂停打印机 / 手机通知
 ```
 
@@ -195,6 +196,16 @@ vision:
   webhook:                    # 通知方式二（可选）：Webhook（HA 等）
     enabled: true
     url: "http://homeassistant:8123/api/webhook/lapsecam-print"
+
+  imageHost:                  # 可选：告警时把现场图上传到自建图床（CloudFlare-ImgBed 的 /upload 接口）
+    enabled: true
+    provider: "cloudflare-imgbed"
+    baseUrl: "https://img.example.com"     # ← 你部署的图床站点，不加结尾斜杠
+    apiKey: ""                # 图床 API Token（Bearer）；留空读环境变量 IMAGE_HOST_API_KEY
+    authCode: ""              # 上传认证码（与 apiKey 二选一）
+    uploadChannel: "cfr2"     # 存储渠道：telegram/cfr2/s3/discord/huggingface/webdav
+    uploadFolder: "lapsecam"  # 上传目录（可空）
+    returnFormat: "full"      # default（/file/id）| full（完整链接）
 ```
 
 **3) 重启服务**，然后正常按层截图即可。每截一层图 → 自动分析一次。
@@ -210,8 +221,8 @@ journalctl -u lapsecam | grep -i printcheck                # 分析/推送日志
 
 ### 通知说明
 
-- **Bark**：确认故障时推一条文字通知（标题如「3D 打印异常：炒面」，正文为 AI reason + 置信度）。
-  当前版本不带图片；`baseUrl` 支持自建 Bark 服务。Bark 用法见 <https://bark.day.app/#/tutorial>。
+- **Bark**：确认故障时推一条通知（标题如「3D 打印异常：炒面」，正文为 AI reason + 置信度）。
+  若开启了 `vision.imageHost`，现场图会先上传图床，Bark 推送带 `image`（iOS 长按通知可见）；`baseUrl` 支持自建 Bark 服务。Bark 用法见 <https://bark.day.app/#/tutorial>。
 - **现场图留存**：只要某次分析判为异常，就把当时最新一帧复制到 `data/vision/task-{id}/events/`
   （即使还没到告警阈值）。出片/清理会删除 `frames/` 中间帧，但这里的留存副本不受影响，
   「AI 监控」页审计记录里的现场图始终可看。
@@ -401,7 +412,7 @@ automation:
 - **延时任务**：新建（摄像头/间隔/FPS/分辨率/起止时间）、开始/停止、进度与帧数
 - **视频**：播放/下载 MP4、删除记录
 - **🛰️ AI 监控**：当前打印状态卡片 + 跨任务审计记录（时间/任务/摄像头/状态/置信度/原因/现场图，点击图片可放大）
-- **⚙️ 设置**：页面直接改 AI 打印监控配置（抽帧模式、视觉模型、判定策略、Webhook、Bark），
+- **⚙️ 设置**：页面直接改 AI 打印监控配置（抽帧模式、视觉模型、判定策略、Webhook、Bark、图床上传），
   并提供「其他设置」YAML 编辑器覆盖 server/quick/cleanup/preview/编码等所有非 AI 配置，保存并一键重启生效
 
 ---
@@ -449,7 +460,6 @@ data/
 
 ## 🗺️ 路线图（暂未实现）
 
-- 告警现场图上传公网图床 / Bark 带图
 - ONVIF 自动发现 / 自动获取 RTSP
 - 时间水印 / 天气信息
 - 硬件编码 / GPU

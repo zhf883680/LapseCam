@@ -79,9 +79,20 @@ vision:
     enabled: false
     url: ""                     # 如 http://homeassistant:8123/api/webhook/lapsecam-print
   bark:
-    enabled: false              # Bark iOS 推送（只发文字，不带图片）
+    enabled: false              # Bark iOS 推送（开启 imageHost 后可带现场图，长按通知可见）
     key: ""                     # Bark 设备 key（Bark APP 里复制的那串）
     group: "LapseCam"           # 通知中心分组
     level: ""                   # active / timeSensitive / critical，空=默认
     volume: 0                   # 重要警告（critical）音量 0-10，0=不传（Bark 默认 5）
-    baseUrl: "https://api.day.app"   # 自建 Bark 服务可改
+    baseUrl: "https://api.day.app"
+  imageHost:
+    enabled: false             # 告警时把现场图上传到自建图床（CloudFlare-ImgBed 的 /upload 接口）
+    provider: "cloudflare-imgbed"
+    baseUrl: ""                # 图床站点地址（不带结尾斜杠），如 https://img.example.com
+    apiKey: ""                 # 图床 API Token（Bearer）；留空读环境变量 IMAGE_HOST_API_KEY
+    authCode: ""               # 上传认证码（与 apiKey 二选一）
+    uploadChannel: "cfr2"      # 存储渠道：telegram/cfr2/s3/discord/huggingface/webdav
+    channelName: ""            # 多渠道场景指定渠道名（可空）
+    uploadFolder: "lapsecam"   # 上传目录（相对路径，可空）
+    returnFormat: "full"       # default（/file/id）| full（完整链接）
+    timeout: 30s               # 上传超时   # 自建 Bark 服务可改

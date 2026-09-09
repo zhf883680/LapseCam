@@ -83,3 +83,14 @@ vision:
     level: ""
     volume: 0
     baseUrl: "https://api.day.app"
+  imageHost:
+    enabled: false             # 告警时把现场图上传到自建图床（CloudFlare-ImgBed 的 /upload 接口）
+    provider: "cloudflare-imgbed"
+    baseUrl: ""                # 图床站点地址（不带结尾斜杠），如 https://img.example.com
+    apiKey: ""                 # 图床 API Token（Bearer）；留空读环境变量 IMAGE_HOST_API_KEY
+    authCode: ""               # 上传认证码（与 apiKey 二选一）
+    uploadChannel: "cfr2"      # 存储渠道：telegram/cfr2/s3/discord/huggingface/webdav
+    channelName: ""            # 多渠道场景指定渠道名（可空）
+    uploadFolder: "lapsecam"   # 上传目录（相对路径，可空）
+    returnFormat: "full"       # default（/file/id）| full（完整链接）
+    timeout: 30s               # 上传超时

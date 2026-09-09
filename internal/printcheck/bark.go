@@ -22,9 +22,10 @@ type barkPayload struct {
 	Group     string `json:"group,omitempty"`
 	Level     string `json:"level,omitempty"`
 	Volume    int    `json:"volume,omitempty"` // 重要警告音量 0-10
+	Image     string `json:"image,omitempty"`  // 告警现场图 URL（图床上传后），通知里长按可见
 }
 
-// sendBark 确认故障时推一条 Bark 文字通知（不带图片）。
+// sendBark 确认故障时推一条 Bark 通知；若已把现场图传到图床，则带上 image（长按可见）。
 // 与 Webhook 相互独立：bark.enabled=true 才发，失败只记日志。
 func (s *Service) sendBark(c Check) {
 	b := s.cfg.Vision.Bark
@@ -69,6 +70,7 @@ func buildBarkPayload(c Check, b config.BarkConfig) barkPayload {
 		Group:     strings.TrimSpace(b.Group),
 		Level:     b.Level,
 		Volume:    b.Volume,
+		Image:     strings.TrimSpace(c.ImageHostURL),
 	}
 	if payload.Group == "" {
 		payload.Group = "LapseCam"
