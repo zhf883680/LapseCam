@@ -130,7 +130,7 @@ video{width:100%;border-radius:10px;background:#000}
 
   <!-- 设置（AI 打印监控配置） -->
   <section id="tab-settings">
-    <div class="toolbar"><h2>⚙️ AI 打印监控设置</h2><span class="muted" id="cfgPath"></span></div>
+    <div class="toolbar"><h2>⚙️ 服务配置</h2><span class="muted" id="cfgPath"></span></div>
     <div style="max-width:780px" id="settingsBody">
       <div class="panel">
         <h3>抽帧模式</h3>
@@ -193,8 +193,90 @@ video{width:100%;border-radius:10px;background:#000}
       </div>
 
       <div class="panel">
+        <h3>服务与数据（server / database / storage）</h3>
+        <div class="row">
+          <div class="form-row"><label>server.addr</label><input id="sAddr" placeholder=":8080"></div>
+          <div class="form-row"><label>database.path</label><input id="dbPath" placeholder="data/database.db"></div>
+        </div>
+        <div class="row">
+          <div class="form-row"><label>storage.baseDir</label><input id="stBase" placeholder="data"></div>
+          <div class="form-row"><label>storage.framesDir</label><input id="stFrames" placeholder="frames"></div>
+          <div class="form-row"><label>storage.videosDir</label><input id="stVideos" placeholder="videos"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>FFmpeg 编码</h3>
+        <div class="row">
+          <div class="form-row"><label>binary</label><input id="ffBinary" placeholder="ffmpeg"></div>
+          <div class="form-row"><label>ffprobe</label><input id="ffProbe" placeholder="ffprobe"></div>
+          <div class="form-row"><label>probeTimeout（秒）</label><input id="ffProbeTimeout" type="number" min="1"></div>
+        </div>
+        <div class="row">
+          <div class="form-row"><label>rtspTransport</label><input id="ffRtsp" placeholder="tcp"></div>
+          <div class="form-row"><label>captureJPEGQuality（2-31）</label><input id="ffQuality" type="number" min="2" max="31"></div>
+          <div class="form-row"><label>captureBackoff（逗号分隔，如 5s,10s,30s,60s）</label><input id="ffBackoff" placeholder="5s,10s,30s,60s"></div>
+        </div>
+        <div class="row">
+          <div class="form-row"><label>encodePreset</label><input id="ffPreset" placeholder="veryfast"></div>
+          <div class="form-row"><label>encodeCRF（18-28）</label><input id="ffCrf" type="number" min="0" max="51"></div>
+          <div class="form-row"><label>encodeMaxRateKbps（0=默认）</label><input id="ffMaxRate" type="number" min="0"></div>
+          <div class="form-row"><label>encodeThreads（0=自动）</label><input id="ffThreads" type="number" min="0"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>实时预览（go2rtc）</h3>
+        <div class="form-check"><input type="checkbox" id="pvEnabled"><label style="margin:0">启用预览</label></div>
+        <div class="row">
+          <div class="form-row"><label>binary</label><input id="pvBinary" placeholder="go2rtc"></div>
+          <div class="form-row"><label>addr</label><input id="pvAddr" placeholder="127.0.0.1:1984"></div>
+          <div class="form-row"><label>basePath</label><input id="pvBasePath" placeholder="/go2rtc"></div>
+        </div>
+        <div class="row">
+          <div class="form-row"><label>rtspTransport</label><input id="pvRtsp" placeholder="tcp"></div>
+          <div class="form-row"><label>media</label><input id="pvMedia" placeholder="video"></div>
+          <div class="form-row"><label>startTimeout（秒）</label><input id="pvStartTimeout" type="number" min="1"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>调度 scheduler</h3>
+        <div class="row">
+          <div class="form-row"><label>tickSeconds</label><input id="scTick" type="number" min="1"></div>
+          <div class="form-row"><label>cameraCheckSeconds（0=关闭）</label><input id="scCam" type="number" min="0"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>快捷录制 quick（抽帧模式见上方）</h3>
+        <div class="row">
+          <div class="form-row"><label>name</label><input id="qName" placeholder="快捷录制"></div>
+          <div class="form-row"><label>intervalSeconds</label><input id="qInterval" type="number" min="1"></div>
+          <div class="form-row"><label>layerOffsetSeconds（可负）</label><input id="qOffset" type="number" step="0.1"></div>
+        </div>
+        <div class="row">
+          <div class="form-row"><label>layerWindowSeconds</label><input id="qWindow" type="number" step="0.1" min="0"></div>
+          <div class="form-row"><label>outputFps</label><input id="qFps" type="number" min="1"></div>
+          <div class="form-row"><label>width</label><input id="qWidth" type="number" min="1"></div>
+          <div class="form-row"><label>height</label><input id="qHeight" type="number" min="1"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>数据清理 cleanup</h3>
+        <div class="form-check"><input type="checkbox" id="clEnabled"><label style="margin:0">启用自动清理</label></div>
+        <div class="row">
+          <div class="form-row"><label>intervalHours（<=0 回退 24）</label><input id="clInterval" type="number" min="0"></div>
+          <div class="form-row"><label>videoRetentionDays（0=保留全部）</label><input id="clRetention" type="number" min="0"></div>
+        </div>
+        <div class="form-check"><input type="checkbox" id="clRemoveFrames"><label style="margin:0">出片后删除中间帧</label></div>
+        <div class="form-check"><input type="checkbox" id="clOrphans"><label style="margin:0">清理孤儿数据</label></div>
+      </div>
+
+      <div class="panel">
         <h3>其他设置（server / quick / scheduler / cleanup / preview / ffmpeg …）</h3>
-        <div class="form-row"><label>直接编辑除 vision 外的其它配置（YAML 原文）；AI 相关请用上方表单。保存后需重启生效。</label>
+        <div class="form-row"><label>高级：直接编辑 YAML（将覆盖上方所有可视化设置）；仅当需要保留自定义键值/大量改动时使用。保存后需重启生效。</label>
         <textarea id="otherCfg" rows="20" spellcheck="false"></textarea></div>
         <button class="btn ghost" onclick="saveOtherCfg()">💾 保存其他配置</button>
         <span class="muted" style="margin-left:10px;font-size:12px">不含 vision 段，保存时自动合并；Key 不会出现在这里</span>
@@ -694,10 +776,48 @@ async function loadConfig(){
     document.getElementById('ihAuthCode').value = '';
     document.getElementById('ihChannel').value = v.imageHostChannel || 'cfr2';
     document.getElementById('ihFolder').value = v.imageHostFolder || '';
+    const se = c.server || {}, db = c.database || {}, st = c.storage || {}, ff = c.ffmpeg || {},
+          pv = c.preview || {}, sc = c.scheduler || {}, q = c.quick || {}, cl = c.cleanup || {};
+    document.getElementById('sAddr').value = se.addr || '';
+    document.getElementById('dbPath').value = db.path || '';
+    document.getElementById('stBase').value = st.baseDir || '';
+    document.getElementById('stFrames').value = st.framesDir || '';
+    document.getElementById('stVideos').value = st.videosDir || '';
+    document.getElementById('ffBinary').value = ff.binary || '';
+    document.getElementById('ffProbe').value = ff.ffprobe || '';
+    document.getElementById('ffProbeTimeout').value = ff.probeTimeoutSec || 8;
+    document.getElementById('ffRtsp').value = ff.rtspTransport || 'tcp';
+    document.getElementById('ffQuality').value = ff.captureJPEGQuality || 2;
+    document.getElementById('ffBackoff').value = (ff.captureBackoff || []).join(',');
+    document.getElementById('ffPreset').value = ff.encodePreset || 'veryfast';
+    document.getElementById('ffCrf').value = ff.encodeCRF || 26;
+    document.getElementById('ffMaxRate').value = ff.encodeMaxRateKbps || 0;
+    document.getElementById('ffThreads').value = ff.encodeThreads || 0;
+    document.getElementById('pvEnabled').checked = !!pv.enabled;
+    document.getElementById('pvBinary').value = pv.binary || 'go2rtc';
+    document.getElementById('pvAddr').value = pv.addr || '127.0.0.1:1984';
+    document.getElementById('pvBasePath').value = pv.basePath || '/go2rtc';
+    document.getElementById('pvRtsp').value = pv.rtspTransport || 'tcp';
+    document.getElementById('pvMedia').value = pv.media || 'video';
+    document.getElementById('pvStartTimeout').value = pv.startTimeoutSec || 10;
+    document.getElementById('scTick').value = sc.tickSeconds || 1;
+    document.getElementById('scCam').value = sc.cameraCheckSeconds || 0;
+    document.getElementById('qName').value = q.name || '快捷录制';
+    document.getElementById('qInterval').value = q.intervalSeconds || 5;
+    document.getElementById('qOffset').value = q.layerOffsetSeconds || 0;
+    document.getElementById('qWindow').value = q.layerWindowSeconds || 5;
+    document.getElementById('qFps').value = q.outputFps || 30;
+    document.getElementById('qWidth').value = q.width || 1280;
+    document.getElementById('qHeight').value = q.height || 720;
+    document.getElementById('clEnabled').checked = cl.enabled !== false;
+    document.getElementById('clInterval').value = cl.intervalHours || 24;
+    document.getElementById('clRetention').value = cl.videoRetentionDays || 0;
+    document.getElementById('clRemoveFrames').checked = !!cl.removeFramesAfterEncode;
+    document.getElementById('clOrphans').checked = !!cl.removeOrphans;
     document.getElementById('otherCfg').value = c.others || '';
     document.getElementById('cfgHint').textContent = c.aiEnabled
-      ? '当前 AI 已启用。改动后点「保存并重启生效」；服务由 systemd/Docker 自动拉起。'
-      : 'AI 当前未启用：启用需配置 apiKey（或环境变量 VISION_API_KEY）并确保摄像头可用；改动后点「保存并重启生效」。';
+      ? '改动后点「保存并重启生效」；服务由 systemd/Docker 自动拉起。'
+      : '改动后点「保存并重启生效」；服务由 systemd/Docker 自动拉起。';
   }catch(e){
     body.innerHTML = '<div class="empty">加载配置失败：' + esc(e.message) + '</div>';
   }
@@ -747,6 +867,48 @@ async function saveConfig(restart){
       imageHostAuthCode: document.getElementById('ihAuthCode').value.trim(),
       imageHostChannel: sval('ihChannel'),
       imageHostFolder: sval('ihFolder')
+    },
+    server: { addr: sval('sAddr') },
+    database: { path: sval('dbPath') },
+    storage: { baseDir: sval('stBase'), framesDir: sval('stFrames'), videosDir: sval('stVideos') },
+    ffmpeg: {
+      binary: sval('ffBinary'),
+      ffprobe: sval('ffProbe'),
+      probeTimeoutSec: snum('ffProbeTimeout'),
+      rtspTransport: sval('ffRtsp'),
+      captureJPEGQuality: snum('ffQuality'),
+      captureBackoff: document.getElementById('ffBackoff').value.split(',').map(x=>x.trim()).filter(Boolean),
+      encodePreset: sval('ffPreset'),
+      encodeCRF: snum('ffCrf'),
+      encodeMaxRateKbps: snum('ffMaxRate'),
+      encodeThreads: snum('ffThreads')
+    },
+    preview: {
+      enabled: scb('pvEnabled'),
+      binary: sval('pvBinary'),
+      addr: sval('pvAddr'),
+      basePath: sval('pvBasePath'),
+      rtspTransport: sval('pvRtsp'),
+      media: sval('pvMedia'),
+      startTimeoutSec: snum('pvStartTimeout')
+    },
+    scheduler: { tickSeconds: snum('scTick'), cameraCheckSeconds: snum('scCam') },
+    quick: {
+      name: sval('qName'),
+      captureMode: document.getElementById('setCaptureMode').value,
+      intervalSeconds: snum('qInterval'),
+      layerOffsetSeconds: snum('qOffset'),
+      layerWindowSeconds: snum('qWindow'),
+      outputFps: snum('qFps'),
+      width: snum('qWidth'),
+      height: snum('qHeight')
+    },
+    cleanup: {
+      enabled: scb('clEnabled'),
+      intervalHours: snum('clInterval'),
+      videoRetentionDays: snum('clRetention'),
+      removeFramesAfterEncode: scb('clRemoveFrames'),
+      removeOrphans: scb('clOrphans')
     }
   };
   try{

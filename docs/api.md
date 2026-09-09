@@ -112,7 +112,7 @@ curl -X POST http://192.168.1.20:19090/api/quick/stop
 | GET | `/api/checks?limit=` | 审计：跨任务分析记录（含任务/摄像头名，页面「AI 监控」用） |
 | GET | `/api/checks/{id}/image` | 某次分析的现场图（`/api/quick/checks/{id}/image` 同义） |
 | GET | `/api/config` | 读取可编辑配置（AI 表单字段 + `others` 全文（不含 vision，避免 Key 回传）） |
-| PUT | `/api/config` | 写回配置：可改 `quick.captureMode`、`vision` 段，或传 `others`（YAML 原文）整体改其它非 AI 段（重启后生效） |
+| PUT | `/api/config` | 写回配置：可改 `captureMode`、`vision` 段，及 `server/database/storage/ffmpeg/preview/scheduler/quick/cleanup` 各段（页面可视化表单）；或传 `others`（YAML 原文）整体改非 AI 段（高级，重启后生效） |
 | POST | `/api/config/restart` | 保存配置后触发重启（systemd/Docker 自动拉起） |
 
 检测状态：`normal` / `spaghetti`(炒面) / `clog`(堵头) / `object_displaced`(打印件被拖走) /

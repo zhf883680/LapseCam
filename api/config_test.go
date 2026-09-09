@@ -1,6 +1,8 @@
 package api
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -80,5 +82,69 @@ func TestIsTopLevel(t *testing.T) {
 	}
 	if isTopLevel("") {
 		t.Error("空行不应是顶层")
+	}
+}
+
+func TestApplyConfigInputSectionsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	src := `server:
+  addr: ":9000"
+
+database:
+  path: "data/db.db"
+
+quick:
+  captureMode: "interval"
+  name: "快捷录制"
+
+# 保留注释
+cleanup:
+  enabled: false
+
+vision:
+  enabled: false
+`
+	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{cfg: cfg, cfgPath: path}
+
+	addr := ":9999"
+	mode := "layer"
+	clEnabled := true
+	in := configInput{
+		CaptureMode: &mode,
+		Server:      &serverIn{Addr: &addr},
+		Cleanup:     &cleanupIn{Enabled: &clEnabled},
+	}
+	if err := s.applyConfigInput(in); err != nil {
+		t.Fatal(err)
+	}
+	out, _ := os.ReadFile(path)
+	txt := string(out)
+
+	// 关键校验：重新加载后值正确、注释与其它段保留
+	cfg2, err := config.Load(path)
+	if err != nil {
+		t.Fatalf("reload: %v\n%s", err, txt)
+	}
+	if cfg2.Server.Addr != ":9999" {
+		t.Errorf("server.addr = %q", cfg2.Server.Addr)
+	}
+	if cfg2.Quick.CaptureMode != "layer" {
+		t.Errorf("quick.captureMode = %q", cfg2.Quick.CaptureMode)
+	}
+	if !cfg2.Cleanup.Enabled {
+		t.Errorf("cleanup.enabled = false, want true")
+	}
+	for _, want := range []string{"保留注释", "vision:"} {
+		if !strings.Contains(txt, want) {
+			t.Errorf("缺少 %q:\n%s", want, txt)
+		}
 	}
 }

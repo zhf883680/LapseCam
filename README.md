@@ -412,8 +412,7 @@ automation:
 - **延时任务**：新建（摄像头/间隔/FPS/分辨率/起止时间）、开始/停止、进度与帧数
 - **视频**：播放/下载 MP4、删除记录
 - **🛰️ AI 监控**：当前打印状态卡片 + 跨任务审计记录（时间/任务/摄像头/状态/置信度/原因/现场图，点击图片可放大）
-- **⚙️ 设置**：页面直接改 AI 打印监控配置（抽帧模式、视觉模型、判定策略、Webhook、Bark、图床上传），
-  并提供「其他设置」YAML 编辑器覆盖 server/quick/cleanup/preview/编码等所有非 AI 配置，保存并一键重启生效
+- **⚙️ 设置**：**整份 config.yaml 全部可视化**——server / database / storage / ffmpeg / preview / scheduler / quick / cleanup / vision 每个字段都可在页面直接改，无需手写 YAML；另保留「高级 YAML」编辑器便于自定义，保存并一键重启生效
 
 ---
 

@@ -15,11 +15,19 @@ import (
 
 // configView 页面可编辑的配置（只暴露 AI/打印监控相关，密码/Key 不回传明文）。
 type configView struct {
-	Path        string     `json:"path"`
-	CaptureMode string     `json:"captureMode"`
-	AIEnabled   bool       `json:"aiEnabled"`
-	Vision      visionView `json:"vision"`
-	Others      string     `json:"others"` // 除 vision 外的完整配置（YAML 原文，供“其他设置”编辑）
+	Path        string        `json:"path"`
+	CaptureMode string        `json:"captureMode"`
+	AIEnabled   bool          `json:"aiEnabled"`
+	Vision      visionView    `json:"vision"`
+	Server      serverView    `json:"server"`
+	Database    databaseView  `json:"database"`
+	Storage     storageView   `json:"storage"`
+	FFmpeg      ffmpegView    `json:"ffmpeg"`
+	Preview     previewView   `json:"preview"`
+	Scheduler   schedulerView `json:"scheduler"`
+	Quick       quickView     `json:"quick"`
+	Cleanup     cleanupView   `json:"cleanup"`
+	Others      string        `json:"others"` // 除 vision/已可视化段外的完整配置（YAML 原文，供高级编辑）
 }
 
 type visionView struct {
@@ -60,9 +68,17 @@ type visionView struct {
 
 // configInput PUT /api/config 的入参（字段缺省 = 不修改）。
 type configInput struct {
-	CaptureMode *string   `json:"captureMode"`
-	Vision      *visionIn `json:"vision"`
-	Others      *string   `json:"others"` // 非空时：整体替换除 vision 外的配置段（YAML 原文）
+	CaptureMode *string      `json:"captureMode"`
+	Vision      *visionIn    `json:"vision"`
+	Server      *serverIn    `json:"server"`
+	Database    *databaseIn  `json:"database"`
+	Storage     *storageIn   `json:"storage"`
+	FFmpeg      *ffmpegIn    `json:"ffmpeg"`
+	Preview     *previewIn   `json:"preview"`
+	Scheduler   *schedulerIn `json:"scheduler"`
+	Quick       *quickIn     `json:"quick"`
+	Cleanup     *cleanupIn   `json:"cleanup"`
+	Others      *string      `json:"others"` // 非空时：整体替换除 vision 外的配置段（YAML 原文，高级用）
 }
 
 type visionIn struct {
@@ -137,6 +153,14 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 			ImageHostChannel:   vc.ImageHost.UploadChannel,
 			ImageHostFolder:    vc.ImageHost.UploadFolder,
 		},
+		Server:    sectionServer(s.cfg),
+		Database:  sectionDatabase(s.cfg),
+		Storage:   sectionStorage(s.cfg),
+		FFmpeg:    sectionFFmpeg(s.cfg),
+		Preview:   sectionPreview(s.cfg),
+		Scheduler: sectionScheduler(s.cfg),
+		Quick:     sectionQuick(s.cfg),
+		Cleanup:   sectionCleanup(s.cfg),
 	}
 	writeJSON(w, http.StatusOK, view)
 }
@@ -320,6 +344,35 @@ func (s *Server) applyConfigInput(in configInput) error {
 			return err
 		}
 		lines = upsertTopLevel(lines, block)
+	}
+
+	// 其它配置段（server/database/storage/ffmpeg/preview/scheduler/quick/cleanup）可视化编辑。
+	// 只有提交进来的段才重写，未提交的段保留原样（注释与未知键不受影响）。
+	// 用局部拷贝合并，避免在保存重启前即改变运行中的配置
+	cfg := *s.cfg
+	applySections(&cfg, in)
+	type sb struct {
+		key string
+		fn  func() (string, error)
+	}
+	for _, x := range []sb{
+		{"server", func() (string, error) { return marshalServer(cfg.Server) }},
+		{"database", func() (string, error) { return marshalDatabase(cfg.Database) }},
+		{"storage", func() (string, error) { return marshalStorage(cfg.Storage) }},
+		{"ffmpeg", func() (string, error) { return marshalFFmpeg(cfg.FFmpeg) }},
+		{"preview", func() (string, error) { return marshalPreview(cfg.Preview) }},
+		{"scheduler", func() (string, error) { return marshalScheduler(cfg.Scheduler) }},
+		{"quick", func() (string, error) { return marshalQuick(cfg.Quick) }},
+		{"cleanup", func() (string, error) { return marshalCleanup(cfg.Cleanup) }},
+	} {
+		if !sectionProvided(in, x.key) {
+			continue
+		}
+		blk, err := x.fn()
+		if err != nil {
+			return err
+		}
+		lines = upsertTopLevel(lines, blk)
 	}
 
 	out := []byte(strings.Join(lines, "\n"))
@@ -635,4 +688,28 @@ func removeTopBlock(lines []string, key string) []string {
 		trimmed = trimmed[:len(trimmed)-1]
 	}
 	return trimmed
+}
+
+// sectionProvided 判断某顶层配置段是否被提交（用于决定是否重写该段）。
+func sectionProvided(in configInput, key string) bool {
+	switch key {
+	case "server":
+		return in.Server != nil
+	case "database":
+		return in.Database != nil
+	case "storage":
+		return in.Storage != nil
+	case "ffmpeg":
+		return in.FFmpeg != nil
+	case "preview":
+		return in.Preview != nil
+	case "scheduler":
+		return in.Scheduler != nil
+	case "quick":
+		return in.Quick != nil
+	case "cleanup":
+		return in.Cleanup != nil
+	default:
+		return false
+	}
 }
