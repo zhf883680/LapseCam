@@ -10,7 +10,7 @@
 
 ## ✨ 功能亮点
 
-- 🛰️ **AI 打印监控（Vision Monitor）**：逐层截图后自动把最近 N 张帧发给 OpenAI 兼容视觉模型（默认 DeepSeek），识别炒面 / 堵头 / 打印件被拖走 / 积料 / 喷嘴碰撞；连续多次判异常才告警（防误报），支持 Bark（可自建服务）+ Webhook 通知
+- 🛰️ **AI 打印监控（Vision Monitor）**：逐层截图后自动把最近 N 张帧发给 OpenAI 兼容视觉模型（默认千问 qwen3-vl-flash，可换任意 OpenAI 兼容），识别炒面 / 堵头 / 打印件被拖走 / 积料 / 喷嘴碰撞；连续多次判异常才告警（防误报），支持 Bark（可自建服务）+ Webhook 通知
 - 🖼️ **告警现场图上传图床**：确认故障时把现场图上传到自建图床（CloudFlare-ImgBed / S3 / Telegram / WebDAV），Bark 推送带图、Webhook 给公开 URL——手机长按通知即可看现场
 - **为 Home Assistant 而生**：固定 URL 的快捷录制接口，自动化里写死即可，重复调用幂等；打印开始即录、结束/暂停即停并出片
 - **拓竹 A1 逐层截图**：床滑式打印机专用，`layer`（每层抓一帧）/ `timestamp`（记录层时刻选帧）两种按层模式，成片不再左右横跳
@@ -119,7 +119,7 @@ HA：检测到打印层变化
 ffmpeg 抓一帧 → 存入本次打印的帧序列
    │
    ▼（后台自动，不阻塞截图响应；仅当该打印任务已开启 AI 检测时才分析）
-取最近 vision.analyzeFrames 张帧 → 一次性发给 OpenAI 兼容视觉模型（默认 DeepSeek）
+取最近 vision.analyzeFrames 张帧 → 一次性发给 OpenAI 兼容视觉模型（默认千问 qwen3-vl-flash）
    │
    ▼
 normal / spaghetti(炒面) / clog(堵头) / object_displaced(被拖走)
@@ -153,7 +153,7 @@ normal / spaghetti(炒面) / clog(堵头) / object_displaced(被拖走)
 前提：摄像头已接入 LapseCam；打印机使用**逐层截图**流程（见下方 HA 集成 2.5，需切片器开启
 Smooth Timelapse）。然后：
 
-**1) 配 AI Key（OpenAI 兼容，默认 DeepSeek）**
+**1) 配 AI Key（OpenAI 兼容，默认千问 qwen3-vl-flash）**
 
 Docker 场景推荐环境变量（避免进配置文件）：
 
@@ -172,9 +172,9 @@ quick:
 
 vision:
   enabled: true               # 打开 AI 分析
-  provider: "deepseek"        # 通用 OpenAI 兼容：改 baseUrl+model+apiKey 即可换 OpenAI/OpenRouter…
-  baseUrl: "https://api.deepseek.com/v1"
-  model: "deepseek-v4-flash-vision-exp"
+  provider: "qwen"             # 阿里云百炼千问；改 baseUrl+model+apiKey 即可换 OpenAI/DeepSeek…
+  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  model: "qwen3-vl-flash"       # 千问视觉 flash 档
   timeout: 180s            # qwen 等慢模型可再放宽
   disableThinking: true    # 默认关思考（千问/阿里云生效）
 
@@ -261,8 +261,9 @@ automation:
 ```
 
 > 提示：模型走 OpenAI 兼容接口，`vision.baseUrl`/`model`/`apiKey` 可指向 OpenAI、DeepSeek、
-> OpenRouter 或自建兼容服务。DeepSeek 视觉说明见
-> <https://api-docs.deepseek.com/zh-cn/guides/vision>。
+> OpenRouter 或自建兼容服务。默认百炼千问：`baseUrl=https://dashscope.aliyuncs.com/compatible-mode/v1`、
+> `model=qwen3-vl-flash`、API Key 用 `DASHSCOPE_API_KEY` 或 `vision.apiKey`。
+> 图床/临时文件等细节见 [API 与配置参考](docs/api.md)。
 
 ---
 

@@ -112,6 +112,7 @@ type VisionConfig struct {
 	MaxChecksPerTask       int             `yaml:"maxChecksPerTask"`       // 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限制
 	MaxImageWidth          int             `yaml:"maxImageWidth"`          // 发给 AI 前把帧缩到该宽度（0=不压缩）；缩图最省 token
 	AIEnabledByDefault     bool            `yaml:"aiEnabledByDefault"`     // 新建打印任务默认是否开启 AI 检测（false=默认关，需手动开）
+	ImageSource            string          `yaml:"imageSource"`            // 图片传输：base64（默认）| temp（阿里云百炼临时文件 URL）
 	MinConfidence          float64         `yaml:"minConfidence"`          // AI 判异常所需的最低置信度
 	FailureStreak          int             `yaml:"failureStreak"`          // 连续 N 次分析判异常才告警（防单次误报）
 	CooldownSeconds        int             `yaml:"cooldownSeconds"`        // 同一打印任务重复告警冷却（秒）
@@ -212,15 +213,16 @@ func Default() *Config {
 		},
 		Vision: VisionConfig{
 			Enabled:                false,
-			Provider:               "deepseek",
-			BaseURL:                "https://api.deepseek.com/v1",
-			Model:                  "deepseek-v4-flash-vision-exp",
+			Provider:               "qwen",
+			BaseURL:                "https://dashscope.aliyuncs.com/compatible-mode/v1",
+			Model:                  "qwen3-vl-flash",
 			Timeout:                180 * time.Second,
 			DisableThinking:        true,
 			AnalyzeFrames:          5,
 			AnalyzeIntervalSeconds: 30,
 			MaxChecksPerTask:       50,
 			MaxImageWidth:          0,
+			ImageSource:            "base64",
 			AIEnabledByDefault:     false,
 			MinConfidence:          0.8,
 			FailureStreak:          3,
@@ -357,6 +359,12 @@ func (c *Config) applyDefaults() {
 	}
 	if c.Vision.MaxChecksPerTask < 0 {
 		c.Vision.MaxChecksPerTask = d.Vision.MaxChecksPerTask
+	}
+	if c.Vision.ImageSource == "" {
+		c.Vision.ImageSource = d.Vision.ImageSource
+	}
+	if c.Vision.ImageSource != "base64" && c.Vision.ImageSource != "temp" {
+		c.Vision.ImageSource = d.Vision.ImageSource
 	}
 	if c.Vision.MaxImageWidth < 0 {
 		c.Vision.MaxImageWidth = d.Vision.MaxImageWidth

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"strings"
@@ -24,6 +25,9 @@ type openAICompatible struct {
 	model           string
 	detail          string // low/high/original/auto，空表示不传
 	maxImageWidth   int    // 发送前缩到该宽度（0=不压缩，省 token）
+	imageSource     string // base64（默认）| temp（阿里云临时文件 URL）
+	uploader        *tempUploader
+	useTempURL      bool
 	timeout         time.Duration
 	disableThinking bool         // 对千问/阿里云端点关闭思考模式（enable_thinking=false）
 	client          *http.Client // 可注入（测试用），nil 时用 http.DefaultClient
@@ -57,9 +61,19 @@ type chatResponseBody struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage *usageInfo `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
 	} `json:"error,omitempty"`
+}
+
+// usageInfo 记录请求的 token 用量（用于观察图片 token 与上下文缓存命中）。
+type usageInfo struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	PromptDetails    struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details"`
 }
 
 // 系统提示：约束模型只做画面归类并输出结构化 JSON。
@@ -103,9 +117,17 @@ func (c *openAICompatible) Analyze(ctx context.Context, images [][]byte) (*Analy
 				img = scaled
 			}
 		}
+		url := dataURL(img)
+		if c.useTempURL && c.uploader != nil {
+			if u, err := c.uploader.upload(img); err == nil {
+				url = u
+			} else {
+				log.Printf("[vision] 上传临时文件失败，回退 base64: %v", err)
+			}
+		}
 		parts = append(parts, contentPart{
 			Type:     "image_url",
-			ImageURL: &imageURL{URL: dataURL(img), Detail: c.detail},
+			ImageURL: &imageURL{URL: url, Detail: c.detail},
 		})
 	}
 
@@ -137,6 +159,10 @@ func (c *openAICompatible) Analyze(ctx context.Context, images [][]byte) (*Analy
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 	req.Header.Set("User-Agent", "lapsecam-vision/1.0")
+	if c.useTempURL {
+		// 使用 oss:// 临时文件 URL 时必须带此头，否则百炼无法解析
+		req.Header.Set("X-DashScope-OssResourceResolve", "enable")
+	}
 
 	hc := c.client
 	if hc == nil {
@@ -164,6 +190,10 @@ func (c *openAICompatible) Analyze(ctx context.Context, images [][]byte) (*Analy
 	}
 	if len(parsed.Choices) == 0 || strings.TrimSpace(parsed.Choices[0].Message.Content) == "" {
 		return nil, fmt.Errorf("vision api empty content")
+	}
+	if u := parsed.Usage; u != nil {
+		log.Printf("[vision] usage: input=%d output=%d cached=%d",
+			u.PromptTokens, u.CompletionTokens, u.PromptDetails.CachedTokens)
 	}
 	return parseResult(parsed.Choices[0].Message.Content)
 }

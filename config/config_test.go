@@ -137,10 +137,10 @@ func TestVisionDefaults(t *testing.T) {
 	if cfg.Vision.Enabled {
 		t.Error("vision 默认应关闭（opt-in）")
 	}
-	if cfg.Vision.Provider != "deepseek" || cfg.Vision.Model != "deepseek-v4-flash-vision-exp" {
+	if cfg.Vision.Provider != "qwen" || cfg.Vision.Model != "qwen3-vl-flash" {
 		t.Errorf("vision 默认 provider/model 异常: %+v", cfg.Vision)
 	}
-	if cfg.Vision.BaseURL != "https://api.deepseek.com/v1" || cfg.Vision.Timeout != 180_000_000_000 {
+	if cfg.Vision.BaseURL != "https://dashscope.aliyuncs.com/compatible-mode/v1" || cfg.Vision.Timeout != 180_000_000_000 {
 		t.Errorf("vision 默认 baseUrl/timeout 异常: %+v", cfg.Vision)
 	}
 	if !cfg.Vision.DisableThinking {

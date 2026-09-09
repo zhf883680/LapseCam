@@ -61,10 +61,10 @@ cleanup:
 
 vision:
   enabled: false                # 是否启用 AI 分析
-  provider: "deepseek"          # deepseek（OpenAI 兼容接口），换 OpenAI/OpenRouter 改 baseUrl/model 即可
-  baseUrl: "https://api.deepseek.com/v1"
+  provider: "qwen"               # 阿里云百炼千问（OpenAI 兼容）；换 OpenAI/DeepSeek 改 baseUrl/model 即可
+  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: ""                    # 推荐用环境变量 VISION_API_KEY，避免密钥进配置文件
-  model: "deepseek-v4-flash-vision-exp"   # DeepSeek 视觉模型
+  model: "qwen3-vl-flash"         # 千问视觉 flash 档（省 token，支持上下文缓存）
   timeout: 180s                  # 单次分析超时
   detail: ""                    # 图片细节：low/high/original/auto，空=不传（等价 original）
   disableThinking: true          # 关闭思考模式（qwen3 等默认开 thinking，又慢又贵）
@@ -73,6 +73,7 @@ vision:
   analyzeIntervalSeconds: 30    # 两次 AI 分析的最小间隔（秒）：层太快（如 5s 一层）时防频繁请求；0=不限制
   maxChecksPerTask: 50          # 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限制
   maxImageWidth: 0              # 发给 AI 前把帧缩到该宽度（0=不压缩）；缩图最省 token，建议 640
+  imageSource: "base64"            # base64（默认）| temp（阿里云百炼临时文件 URL，oss://）
   aiEnabledByDefault: false     # 新建打印任务默认是否开启 AI 检测（false=默认关，需在 AI 监控页手动开）
   minConfidence: 0.8            # AI 判异常所需的最低置信度
   failureStreak: 3              # 连续 N 次分析判异常才告警（默认 3，防误报）

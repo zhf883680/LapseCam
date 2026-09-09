@@ -36,15 +36,21 @@ func New(cfg *config.Config) *Service {
 		log.Printf("[vision] vision.enabled=true 但未配置 apiKey 且环境变量 VISION_API_KEY 为空，AI 分析不可用")
 		return s
 	}
-	s.det = &openAICompatible{
+	det := &openAICompatible{
 		baseURL:         strings.TrimRight(cfg.Vision.BaseURL, "/"),
 		apiKey:          key,
 		model:           cfg.Vision.Model,
 		detail:          cfg.Vision.Detail,
 		maxImageWidth:   cfg.Vision.MaxImageWidth,
+		imageSource:     cfg.Vision.ImageSource,
+		useTempURL:      cfg.Vision.ImageSource == "temp",
 		timeout:         cfg.Vision.Timeout,
 		disableThinking: cfg.Vision.DisableThinking,
 	}
+	if det.useTempURL {
+		det.uploader = newTempUploader(det.baseURL, det.apiKey, det.model)
+	}
+	s.det = det
 	return s
 }
 

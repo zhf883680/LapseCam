@@ -62,16 +62,17 @@ cleanup:
 
 vision:
   enabled: false
-  provider: "deepseek"
-  baseUrl: "https://api.deepseek.com/v1"
+  provider: "qwen"
+  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: ""                    # 或用环境变量 VISION_API_KEY
-  model: "deepseek-v4-flash-vision-exp"
+  model: "qwen3-vl-flash"
   timeout: 180s                  # ARM 设备网络稍慢，放宽一点
   detail: ""
 
   analyzeFrames: 5
   maxChecksPerTask: 50
   maxImageWidth: 0
+  imageSource: "base64"            # base64（默认）| temp（阿里云百炼临时文件 URL，oss://）
   aiEnabledByDefault: false
   minConfidence: 0.8
   failureStreak: 3

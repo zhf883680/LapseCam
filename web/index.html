@@ -149,6 +149,8 @@ video{width:100%;border-radius:10px;background:#000}
         </div>
         <div class="form-row"><label>detail（low/high/original/auto，可空）</label><input id="vDetail" placeholder=""></div>
         <div class="form-row"><label>maxImageWidth（发送前缩图，0=不压缩，省 token）</label><input id="vMaxW" type="number" min="0" placeholder="0"></div>
+        <div class="form-row"><label>imageSource（base64 默认 / temp 阿里云临时文件 URL）</label>
+          <select id="vImageSource"><option value="base64">base64（默认）</option><option value="temp">temp（阿里云临时文件，省体积）</option></select></div>
       </div>
       <div class="panel">
         <h3>判定与告警策略</h3>
@@ -790,6 +792,7 @@ async function loadConfig(){
     document.getElementById('vTimeout').value = v.timeoutSec || 30;
     document.getElementById('vDetail').value = v.detail || '';
     document.getElementById('vMaxW').value = v.maxImageWidth || 0;
+    document.getElementById('vImageSource').value = v.imageSource || 'base64';
     document.getElementById('vAnalyzeFrames').value = v.analyzeFrames;
     document.getElementById('vInterval').value = v.analyzeIntervalSec || 0;
     document.getElementById('vMaxChecks').value = v.maxChecksPerTask || 0;
@@ -884,6 +887,7 @@ async function saveConfig(restart){
       timeoutSec: snum('vTimeout'),
       detail: sval('vDetail'),
       maxImageWidth: snum('vMaxW'),
+      imageSource: sval('vImageSource'),
       analyzeFrames: snum('vAnalyzeFrames'),
       analyzeIntervalSec: snum('vInterval'),
       maxChecksPerTask: snum('vMaxChecks'),

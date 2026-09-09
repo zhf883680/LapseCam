@@ -212,7 +212,7 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `cleanup.videoRetentionDays` | 0=保留全部；>0 只保留最近 N 天视频，默认 0 |
 | `cleanup.removeOrphans` | 清理孤儿数据，默认 `true` |
 | `vision.enabled` | AI 打印健康分析开关，默认 `false` |
-| `vision.provider/baseUrl/apiKey/model` | OpenAI 兼容接口：默认 deepseek / `https://api.deepseek.com/v1` / `deepseek-v4-flash-vision-exp`；换 OpenAI/OpenRouter 改这三项即可 |
+| `vision.provider/baseUrl/apiKey/model` | OpenAI 兼容接口：默认千问 / `https://dashscope.aliyuncs.com/compatible-mode/v1` / `qwen3-vl-flash`；换 OpenAI/DeepSeek/OpenRouter 改这三项即可 |
 | `vision.timeout` | 单次分析超时，默认 `180s`（qwen 等慢模型可再放宽） |
 | `vision.detail` | 图片细节 `low/high/original/auto`，空=不传 |
 | `vision.disableThinking` | 关闭思考模式，默认 `true`（仅对千问/阿里云端点发 `enable_thinking:false`） |
@@ -220,6 +220,7 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `vision.analyzeIntervalSeconds` | 两次 AI 分析最小间隔（秒），默认 `30`，`0`=每次截图都分析 |
 | `vision.maxChecksPerTask` | 每个打印任务最多 AI 分析次数，默认 `50`，`0`=不限 |
 | `vision.maxImageWidth` | 发给 AI 前把帧缩到该宽度（0=不压缩）；缩图最省 token，默认 `0` |
+| `vision.imageSource` | 图片传输方式：`base64`（默认）| `temp`（阿里云百炼临时文件 URL `oss://`，请求体更小，需带 `X-DashScope-OssResourceResolve: enable` 请求头；临时 URL 48h 有效，勿用于生产/高并发） |
 | `vision.aiEnabledByDefault` | 新建打印任务默认是否开启 AI 检测，默认 `false`（需在 AI 监控页对任务手动开启） |
 | `vision.minConfidence` | AI 判异常最低置信度，默认 `0.8` |
 | `vision.failureStreak` | 连续 N 次判异常才告警，默认 `3` |
@@ -292,10 +293,11 @@ quick:
 
 vision:
   enabled: false
-  provider: "deepseek"
-  baseUrl: "https://api.deepseek.com/v1"
+  provider: "qwen"
+  baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   apiKey: ""
-  model: "deepseek-v4-flash-vision-exp"
+  model: "qwen3-vl-flash"
+  imageSource: "base64"
   timeout: 180s
   analyzeFrames: 5
   maxImageWidth: 0
