@@ -81,4 +81,5 @@ vision:
     key: ""
     group: "LapseCam"
     level: ""
+    volume: 0
     baseUrl: "https://api.day.app"

@@ -46,6 +46,7 @@ type visionView struct {
 	BarkKeySet  bool   `json:"barkKeySet"`
 	BarkGroup   string `json:"barkGroup"`
 	BarkLevel   string `json:"barkLevel"`
+	BarkVolume  int    `json:"barkVolume"`
 	BarkBaseURL string `json:"barkBaseUrl"`
 }
 
@@ -79,6 +80,7 @@ type visionIn struct {
 	BarkKey     *string `json:"barkKey"`
 	BarkGroup   *string `json:"barkGroup"`
 	BarkLevel   *string `json:"barkLevel"`
+	BarkVolume  *int    `json:"barkVolume"`
 	BarkBaseURL *string `json:"barkBaseUrl"`
 }
 
@@ -246,6 +248,9 @@ func (s *Server) applyConfigInput(in configInput) error {
 		if v.BarkLevel != nil {
 			vc.Bark.Level = *v.BarkLevel
 		}
+		if v.BarkVolume != nil && *v.BarkVolume >= 0 {
+			vc.Bark.Volume = *v.BarkVolume
+		}
 		if v.BarkBaseURL != nil {
 			vc.Bark.BaseURL = *v.BarkBaseURL
 		}
@@ -328,6 +333,7 @@ type barkYAML struct {
 	Key     string `yaml:"key"`
 	Group   string `yaml:"group"`
 	Level   string `yaml:"level"`
+	Volume  int    `yaml:"volume"`
 	BaseURL string `yaml:"baseUrl"`
 }
 
@@ -353,7 +359,7 @@ func marshalVision(vc config.VisionConfig) (string, error) {
 		Webhook:                webhookYAML{Enabled: vc.Webhook.Enabled, URL: vc.Webhook.URL},
 		Bark: barkYAML{
 			Enabled: vc.Bark.Enabled, Key: vc.Bark.Key, Group: vc.Bark.Group,
-			Level: vc.Bark.Level, BaseURL: vc.Bark.BaseURL,
+			Level: vc.Bark.Level, Volume: vc.Bark.Volume, BaseURL: vc.Bark.BaseURL,
 		},
 	}
 	var buf bytes.Buffer

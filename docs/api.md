@@ -221,6 +221,7 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `vision.webhook.enabled/url` | 告警 Webhook 开关与地址 |
 | `vision.bark.enabled/key` | Bark iOS 文字推送开关与设备 key（可选，与 Webhook 独立） |
 | `vision.bark.group/level` | Bark 通知分组 / 中断级别（`active`/`timeSensitive`/`critical`） |
+| `vision.bark.volume` | 重要警告音量 0-10（`level: critical` 时生效），`0`=不传（Bark 默认 5） |
 | `vision.bark.baseUrl` | 默认 `https://api.day.app`（自建 Bark 可改） |
 
 完整配置示例（ARM 生产版见 `config/config.arm.yaml`）：

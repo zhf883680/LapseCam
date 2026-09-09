@@ -190,6 +190,7 @@ vision:
     baseUrl: "https://api.day.app"   # ← 自建 Bark 填你自己的地址，如 http://192.168.1.10:8080
     group: "LapseCam"
     level: "timeSensitive"    # active / timeSensitive / critical
+    volume: 10                # 重要警告音量 0-10（level=critical 时生效），0=默认5
 
   webhook:                    # 通知方式二（可选）：Webhook（HA 等）
     enabled: true

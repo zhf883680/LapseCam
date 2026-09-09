@@ -21,6 +21,7 @@ type barkPayload struct {
 	Body      string `json:"body"`
 	Group     string `json:"group,omitempty"`
 	Level     string `json:"level,omitempty"`
+	Volume    int    `json:"volume,omitempty"` // 重要警告音量 0-10
 }
 
 // sendBark 确认故障时推一条 Bark 文字通知（不带图片）。
@@ -67,6 +68,7 @@ func buildBarkPayload(c Check, b config.BarkConfig) barkPayload {
 		Title:     "3D 打印异常：" + statusLabel(c.Status),
 		Group:     strings.TrimSpace(b.Group),
 		Level:     b.Level,
+		Volume:    b.Volume,
 	}
 	if payload.Group == "" {
 		payload.Group = "LapseCam"

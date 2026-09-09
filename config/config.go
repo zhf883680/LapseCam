@@ -123,6 +123,7 @@ type BarkConfig struct {
 	Key     string `yaml:"key"`     // Bark 设备 key（APP 里复制的那串）
 	Group   string `yaml:"group"`   // 通知中心分组，默认 LapseCam
 	Level   string `yaml:"level"`   // active/timeSensitive/critical，空=默认 active
+	Volume  int    `yaml:"volume"`  // 重要警告（critical）音量 0-10，0=不传（Bark 默认 5）
 	BaseURL string `yaml:"baseUrl"` // 默认 https://api.day.app（自建 Bark 服务可改）
 }
 

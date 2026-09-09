@@ -83,4 +83,5 @@ vision:
     key: ""                     # Bark 设备 key（Bark APP 里复制的那串）
     group: "LapseCam"           # 通知中心分组
     level: ""                   # active / timeSensitive / critical，空=默认
+    volume: 0                   # 重要警告（critical）音量 0-10，0=不传（Bark 默认 5）
     baseUrl: "https://api.day.app"   # 自建 Bark 服务可改

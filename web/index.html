@@ -173,6 +173,7 @@ video{width:100%;border-radius:10px;background:#000}
           <div class="form-row"><label>baseUrl（自建填你的地址）</label><input id="bBaseUrl" placeholder="https://api.day.app"></div>
           <div class="form-row"><label>group</label><input id="bGroup" placeholder="LapseCam"></div>
           <div class="form-row"><label>level（active/timeSensitive/critical）</label><input id="bLevel" placeholder="timeSensitive"></div>
+          <div class="form-row"><label>volume（音量 0-10，critical 生效，0=默认5）</label><input id="bVolume" type="number" min="0" max="10"></div>
         </div>
       </div>
 
@@ -716,7 +717,8 @@ async function saveConfig(restart){
       barkKey: document.getElementById('bKey').value.trim(),
       barkBaseUrl: sval('bBaseUrl'),
       barkGroup: sval('bGroup'),
-      barkLevel: sval('bLevel')
+      barkLevel: sval('bLevel'),
+      barkVolume: Math.max(0, Math.min(10, parseInt(document.getElementById('bVolume').value || '0', 10)))
     }
   };
   try{

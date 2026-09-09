@@ -10,10 +10,13 @@ import (
 
 func TestBuildBarkPayload(t *testing.T) {
 	c := Check{Status: vision.StatusSpaghetti, Confidence: 0.94, Reason: "模型顶部大量无规则挤出丝"}
-	b := config.BarkConfig{Key: "test-key", Group: "打印机", Level: "timeSensitive"}
+	b := config.BarkConfig{Key: "test-key", Group: "打印机", Level: "critical", Volume: 10}
 	p := buildBarkPayload(c, b)
-	if p.DeviceKey != "test-key" || p.Level != "timeSensitive" {
+	if p.DeviceKey != "test-key" || p.Level != "critical" {
 		t.Errorf("payload = %+v", p)
+	}
+	if p.Volume != 10 {
+		t.Errorf("volume = %d, want 10", p.Volume)
 	}
 	if !strings.Contains(p.Title, "炒面") {
 		t.Errorf("title = %q, want 含炒面", p.Title)
