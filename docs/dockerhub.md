@@ -68,6 +68,8 @@ vision:
   analyzeFrames: 5              # 每次取最近几张（层）
   analyzeIntervalSeconds: 30    # 两次分析最小间隔（层太快时防频繁请求）
   maxChecksPerTask: 50          # 每个打印任务最多分析次数（异常通常前期就出现），0=不限
+  maxImageWidth: 640            # 发给 AI 前缩到该宽度（0=不压缩，省 token）
+  aiEnabledByDefault: false     # 新建任务默认关 AI 检测，需在 AI 监控页对任务开启
   failureStreak: 3              # 连续 3 次判异常才告警
   disableThinking: true         # 关闭思考模式（千问/阿里云生效）
   bark:

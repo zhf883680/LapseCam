@@ -219,6 +219,8 @@ Web 后台摄像头列表的「预览」按钮，用 go2rtc 把摄像头 RTSP �
 | `vision.analyzeFrames` | 每次分析取最近几张帧，默认 `5` |
 | `vision.analyzeIntervalSeconds` | 两次 AI 分析最小间隔（秒），默认 `30`，`0`=每次截图都分析 |
 | `vision.maxChecksPerTask` | 每个打印任务最多 AI 分析次数，默认 `50`，`0`=不限 |
+| `vision.maxImageWidth` | 发给 AI 前把帧缩到该宽度（0=不压缩）；缩图最省 token，默认 `0` |
+| `vision.aiEnabledByDefault` | 新建打印任务默认是否开启 AI 检测，默认 `false`（需在 AI 监控页对任务手动开启） |
 | `vision.minConfidence` | AI 判异常最低置信度，默认 `0.8` |
 | `vision.failureStreak` | 连续 N 次判异常才告警，默认 `3` |
 | `vision.cooldownSeconds` | 同一任务重复告警冷却（秒），默认 `300` |
@@ -296,6 +298,8 @@ vision:
   model: "deepseek-v4-flash-vision-exp"
   timeout: 180s
   analyzeFrames: 5
+  maxImageWidth: 0
+  aiEnabledByDefault: false
   minConfidence: 0.8
   failureStreak: 3
   cooldownSeconds: 300

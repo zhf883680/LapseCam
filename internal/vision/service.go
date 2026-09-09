@@ -41,6 +41,7 @@ func New(cfg *config.Config) *Service {
 		apiKey:          key,
 		model:           cfg.Vision.Model,
 		detail:          cfg.Vision.Detail,
+		maxImageWidth:   cfg.Vision.MaxImageWidth,
 		timeout:         cfg.Vision.Timeout,
 		disableThinking: cfg.Vision.DisableThinking,
 	}

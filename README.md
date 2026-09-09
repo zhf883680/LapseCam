@@ -118,7 +118,7 @@ HA：检测到打印层变化
    ▼
 ffmpeg 抓一帧 → 存入本次打印的帧序列
    │
-   ▼（后台自动，不阻塞截图响应）
+   ▼（后台自动，不阻塞截图响应；仅当该打印任务已开启 AI 检测时才分析）
 取最近 vision.analyzeFrames 张帧 → 一次性发给 OpenAI 兼容视觉模型（默认 DeepSeek）
    │
    ▼
@@ -181,6 +181,8 @@ vision:
   analyzeFrames: 5            # 每次把最近几张（层）发给模型，按你的打印节奏调
   analyzeIntervalSeconds: 30  # 两次 AI 分析的最小间隔（秒）：层太快时防频繁请求；0=不限
   maxChecksPerTask: 50          # 每个打印任务最多执行多少次 AI 分析（异常通常前期就出现），0=不限
+  maxImageWidth: 640           # 发给 AI 前把帧缩到该宽度（0=不压缩）；缩图最省 token
+  aiEnabledByDefault: false    # 新建任务默认关 AI 检测，需在「AI 监控」页对任务手动开启
   minConfidence: 0.8          # AI 判异常所需最低置信度
   failureStreak: 3            # 连续 N 次判异常才告警（防误报，可调低到 2 求快）
   cooldownSeconds: 300        # 同一故障重复告警冷却
@@ -208,7 +210,11 @@ vision:
     returnFormat: "full"      # default（/file/id）| full（完整链接）
 ```
 
-**3) 重启服务**，然后正常按层截图即可。每截一层图 → 自动分析一次。
+**3) 重启服务**，然后正常按层截图即可。
+
+> ⚠️ **按任务开启**：`aiEnabledByDefault` 默认为 `false`——新打印任务**默认不检测**。
+> 在 Web「🛰️ AI 监控」页对当前打印任务点「AI 检测：关 → 开启」，之后每截一层图才会自动分析最近 N 张。
+> 一次性任务、临时看看时不开，能省不少 token；`maxImageWidth` 还能把每张帧缩到 640 宽再发，进一步压费用。
 
 ### 看结果 / 调试
 

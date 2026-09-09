@@ -23,6 +23,7 @@ type openAICompatible struct {
 	apiKey          string
 	model           string
 	detail          string // low/high/original/auto，空表示不传
+	maxImageWidth   int    // 发送前缩到该宽度（0=不压缩，省 token）
 	timeout         time.Duration
 	disableThinking bool         // 对千问/阿里云端点关闭思考模式（enable_thinking=false）
 	client          *http.Client // 可注入（测试用），nil 时用 http.DefaultClient
@@ -97,6 +98,11 @@ func (c *openAICompatible) Analyze(ctx context.Context, images [][]byte) (*Analy
 	userText := contentPart{Type: "text", Text: userPrompt}
 	parts := []contentPart{userText}
 	for _, img := range images {
+		if c.maxImageWidth > 0 {
+			if scaled, err := scaleMaxWidth(img, c.maxImageWidth); err == nil {
+				img = scaled
+			}
+		}
 		parts = append(parts, contentPart{
 			Type:     "image_url",
 			ImageURL: &imageURL{URL: dataURL(img), Detail: c.detail},

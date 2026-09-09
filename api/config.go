@@ -43,6 +43,8 @@ type visionView struct {
 	AnalyzeFrames      int     `json:"analyzeFrames"`
 	AnalyzeIntervalSec int     `json:"analyzeIntervalSec"`
 	MaxChecksPerTask   int     `json:"maxChecksPerTask"`
+	MaxImageWidth      int     `json:"maxImageWidth"`
+	AIEnabledByDefault bool    `json:"aiEnabledByDefault"`
 	MinConfidence      float64 `json:"minConfidence"`
 	FailureStreak      int     `json:"failureStreak"`
 	CooldownSeconds    int     `json:"cooldownSeconds"`
@@ -93,6 +95,8 @@ type visionIn struct {
 	AnalyzeFrames      *int     `json:"analyzeFrames"`
 	AnalyzeIntervalSec *int     `json:"analyzeIntervalSec"`
 	MaxChecksPerTask   *int     `json:"maxChecksPerTask"`
+	MaxImageWidth      *int     `json:"maxImageWidth"`
+	AIEnabledByDefault *bool    `json:"aiEnabledByDefault"`
 	MinConfidence      *float64 `json:"minConfidence"`
 	FailureStreak      *int     `json:"failureStreak"`
 	CooldownSeconds    *int     `json:"cooldownSeconds"`
@@ -136,6 +140,8 @@ func (s *Server) getConfig(w http.ResponseWriter, r *http.Request) {
 			AnalyzeFrames:      vc.AnalyzeFrames,
 			AnalyzeIntervalSec: vc.AnalyzeIntervalSeconds,
 			MaxChecksPerTask:   vc.MaxChecksPerTask,
+			MaxImageWidth:      vc.MaxImageWidth,
+			AIEnabledByDefault: vc.AIEnabledByDefault,
 			MinConfidence:      vc.MinConfidence,
 			FailureStreak:      vc.FailureStreak,
 			CooldownSeconds:    vc.CooldownSeconds,
@@ -270,6 +276,12 @@ func (s *Server) applyConfigInput(in configInput) error {
 		}
 		if v.MaxChecksPerTask != nil && *v.MaxChecksPerTask >= 0 {
 			vc.MaxChecksPerTask = *v.MaxChecksPerTask
+		}
+		if v.MaxImageWidth != nil && *v.MaxImageWidth >= 0 {
+			vc.MaxImageWidth = *v.MaxImageWidth
+		}
+		if v.AIEnabledByDefault != nil {
+			vc.AIEnabledByDefault = *v.AIEnabledByDefault
 		}
 		if v.MinConfidence != nil && *v.MinConfidence > 0 {
 			vc.MinConfidence = *v.MinConfidence
@@ -425,6 +437,8 @@ type visionYAML struct {
 	AnalyzeFrames          int           `yaml:"analyzeFrames"`
 	AnalyzeIntervalSeconds int           `yaml:"analyzeIntervalSeconds"`
 	MaxChecksPerTask       int           `yaml:"maxChecksPerTask"`
+	MaxImageWidth          int           `yaml:"maxImageWidth"`
+	AIEnabledByDefault     bool          `yaml:"aiEnabledByDefault"`
 	MinConfidence          float64       `yaml:"minConfidence"`
 	FailureStreak          int           `yaml:"failureStreak"`
 	CooldownSeconds        int           `yaml:"cooldownSeconds"`
@@ -481,6 +495,8 @@ func marshalVision(vc config.VisionConfig) (string, error) {
 		AnalyzeFrames:          vc.AnalyzeFrames,
 		AnalyzeIntervalSeconds: vc.AnalyzeIntervalSeconds,
 		MaxChecksPerTask:       vc.MaxChecksPerTask,
+		MaxImageWidth:          vc.MaxImageWidth,
+		AIEnabledByDefault:     vc.AIEnabledByDefault,
 		MinConfidence:          vc.MinConfidence,
 		FailureStreak:          vc.FailureStreak,
 		CooldownSeconds:        vc.CooldownSeconds,

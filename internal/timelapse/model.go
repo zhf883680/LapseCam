@@ -35,8 +35,9 @@ type Task struct {
 	ActualStartedAt *time.Time `json:"-"`
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`
+	AIEnabled       bool       `json:"aiEnabled"` // 是否开启本任务的 AI 打印检测（默认关，需手动开）
 
-	FrameCount int     `json:"frameCount,omitempty"` // 当前已抽帧数
+	FrameCount  int     `json:"frameCount,omitempty"`  // 当前已抽帧数
 	ProgressPct float64 `json:"progressPct,omitempty"` // 进度百分比（按时间估算）
 }
 
@@ -48,8 +49,9 @@ type TaskInput struct {
 	OutputFPS       int     `json:"outputFps"`
 	Width           int     `json:"width"`
 	Height          int     `json:"height"`
-	StartAt         string  `json:"startAt"`          // RFC3339 或 "2006-01-02 15:04:05"
-	EndAt           *string `json:"endAt"`            // 可空，为空表示手动停止
+	StartAt         string  `json:"startAt"`             // RFC3339 或 "2006-01-02 15:04:05"
+	EndAt           *string `json:"endAt"`               // 可空，为空表示手动停止
+	AIEnabled       *bool   `json:"aiEnabled,omitempty"` // 缺省用 vision.aiEnabledByDefault
 }
 
 // Record 一条实际生成的视频记录。

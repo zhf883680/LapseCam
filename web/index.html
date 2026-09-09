@@ -122,7 +122,7 @@ video{width:100%;border-radius:10px;background:#000}
 
   <!-- AI 打印监控 -->
   <section id="tab-ai">
-    <div class="toolbar"><h2>AI 打印监控（逐层截图自动分析）</h2><button class="btn ghost" onclick="loadAiStatus();loadAiChecks()">🔄 刷新</button></div>
+    <div class="toolbar"><h2>AI 打印监控（逐层截图自动分析）</h2><button class="btn ghost" onclick="loadAiStatus();loadAiChecks()">🔄 刷新</button><button class="btn" id="aiTaskBtn" style="margin-left:8px;display:none" onclick="toggleTaskAI()"></button><span class="muted" id="aiTaskHint" style="margin-left:10px;font-size:12px"></span></div>
     <div class="kpi" id="aiKpi"></div>
     <div class="toolbar" style="margin-top:6px"><h2>审计记录</h2><span class="muted" id="aiNote"></span></div>
     <div id="aiChecks" class="empty">加载中...</div>
@@ -148,6 +148,7 @@ video{width:100%;border-radius:10px;background:#000}
           <div class="form-row"><label>超时（秒）</label><input id="vTimeout" type="number" min="5"></div>
         </div>
         <div class="form-row"><label>detail（low/high/original/auto，可空）</label><input id="vDetail" placeholder=""></div>
+        <div class="form-row"><label>maxImageWidth（发送前缩图，0=不压缩，省 token）</label><input id="vMaxW" type="number" min="0" placeholder="0"></div>
       </div>
       <div class="panel">
         <h3>判定与告警策略</h3>
@@ -159,6 +160,7 @@ video{width:100%;border-radius:10px;background:#000}
           <div class="form-row"><label>每任务最多分析次数（0=不限）</label><input id="vMaxChecks" type="number" min="0"></div>
           <div class="form-row"><label>cooldownSeconds（重复告警冷却）</label><input id="vCooldown" type="number" min="0"></div>
         </div>
+        <div class="form-check"><input type="checkbox" id="vAIByDefault"><label style="margin:0">新建任务默认开启 AI 检测（false=每个任务默认关，需在「AI 监控」页手动开启）</label></div>
       </div>
       <div class="panel">
         <h3>Webhook 通知</h3>
@@ -694,6 +696,7 @@ function kpiCard(k, v){
 }
 async function loadAiStatus(){
   const el = document.getElementById('aiKpi');
+  loadTaskAI();
   let cfg = null, latest = null, found = false;
   try{ cfg = await api('/config'); }catch(e){}
   try{ const d = await api('/quick/check'); if(d && d.found && d.check){ latest = d.check; found = true; } }catch(e){}
@@ -711,7 +714,38 @@ async function loadAiStatus(){
   el.innerHTML = cards.join('');
   document.getElementById('aiNote').textContent = found
     ? (latest.reason ? esc(latest.reason) : '')
-    : 'layer 模式下每次 /api/quick/snapshot 截图后自动分析最近 N 张（参数在「设置」里调）';
+    : '默认不自动检测：先在「AI 监控」页对当前打印任务开启 AI 检测，逐层截图后才会分析最近 N 张';
+}
+let aiTaskId = 0, aiEnabled = false;
+async function loadTaskAI(){
+  const btn = document.getElementById('aiTaskBtn');
+  const hint = document.getElementById('aiTaskHint');
+  let d = null;
+  try{ d = await api('/quick/task'); }catch(e){}
+  if(d && d.taskId){
+    aiTaskId = d.taskId; aiEnabled = !!d.aiEnabled;
+    btn.style.display = '';
+    btn.textContent = (aiEnabled ? '🛡️ AI 检测：开' : 'AI 检测：关（点击开启）');
+    btn.className = 'btn ' + (aiEnabled ? '' : 'ghost');
+    hint.textContent = aiEnabled ? '本任务已开启 AI 检测，逐层截图会自动分析' : '本任务默认关闭 AI 检测，点击上方按钮开启后才分析';
+  } else {
+    aiTaskId = 0;
+    btn.style.display = 'none';
+    hint.textContent = '';
+  }
+}
+async function toggleTaskAI(){
+  if(!aiTaskId) return;
+  const target = !aiEnabled;
+  try{
+    const d = await api('/quick/task/ai', 'POST', {enabled: target});
+    aiEnabled = !!d.aiEnabled;
+    const btn = document.getElementById('aiTaskBtn');
+    btn.textContent = (aiEnabled ? '🛡️ AI 检测：开' : 'AI 检测：关（点击开启）');
+    btn.className = 'btn ' + (aiEnabled ? '' : 'ghost');
+    toast(aiEnabled ? '已开启本任务 AI 检测' : '已关闭本任务 AI 检测');
+    loadAiStatus(); loadAiChecks();
+  }catch(e){ toast(e.message, 'err'); }
 }
 async function loadAiChecks(){
   const el = document.getElementById('aiChecks');
@@ -755,9 +789,11 @@ async function loadConfig(){
     document.getElementById('vModel').value = v.model || '';
     document.getElementById('vTimeout').value = v.timeoutSec || 30;
     document.getElementById('vDetail').value = v.detail || '';
+    document.getElementById('vMaxW').value = v.maxImageWidth || 0;
     document.getElementById('vAnalyzeFrames').value = v.analyzeFrames;
     document.getElementById('vInterval').value = v.analyzeIntervalSec || 0;
     document.getElementById('vMaxChecks').value = v.maxChecksPerTask || 0;
+    document.getElementById('vAIByDefault').checked = !!v.aiEnabledByDefault;
     document.getElementById('vMinConf').value = v.minConfidence;
     document.getElementById('vStreak').value = v.failureStreak;
     document.getElementById('vCooldown').value = v.cooldownSeconds;
@@ -847,9 +883,11 @@ async function saveConfig(restart){
       model: sval('vModel'),
       timeoutSec: snum('vTimeout'),
       detail: sval('vDetail'),
+      maxImageWidth: snum('vMaxW'),
       analyzeFrames: snum('vAnalyzeFrames'),
       analyzeIntervalSec: snum('vInterval'),
       maxChecksPerTask: snum('vMaxChecks'),
+      aiEnabledByDefault: scb('vAIByDefault'),
       minConfidence: snum('vMinConf'),
       failureStreak: snum('vStreak'),
       cooldownSeconds: snum('vCooldown'),

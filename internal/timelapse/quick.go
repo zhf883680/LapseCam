@@ -349,7 +349,7 @@ func (s *Service) ActiveQuickTaskID() int64 {
 // findActiveQuickTask 查找 name 指定的 running/stopping 任务，没有则返回 nil。
 func (s *Service) findActiveQuickTask(name string) (*Task, error) {
 	row := s.db.QueryRow(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height,
-		start_at, end_at, status, error_message, actual_started_at, created_at, updated_at
+		start_at, end_at, status, error_message, actual_started_at, created_at, updated_at, ai_enabled
 		FROM timelapse_tasks WHERE name=? AND status IN (?, ?) ORDER BY id DESC LIMIT 1`,
 		name, StatusRunning, StatusStopping)
 	var t Task

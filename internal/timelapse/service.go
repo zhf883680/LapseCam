@@ -88,12 +88,17 @@ func (s *Service) Create(in TaskInput) (Task, error) {
 	if endAt != nil {
 		endStr = endAt.UTC().Format(time.RFC3339)
 	}
+	// 任务默认是否开 AI 检测：入参可覆盖，否则用 vision.aiEnabledByDefault（默认 false）
+	aiEnabled := s.cfg.Vision.AIEnabledByDefault
+	if in.AIEnabled != nil {
+		aiEnabled = *in.AIEnabled
+	}
 
 	res, err := s.db.Exec(`INSERT INTO timelapse_tasks
-		(name, camera_id, interval_seconds, output_fps, width, height, start_at, end_at, status, error_message, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)`,
+		(name, camera_id, interval_seconds, output_fps, width, height, start_at, end_at, status, error_message, ai_enabled, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?)`,
 		in.Name, in.CameraID, in.IntervalSeconds, in.OutputFPS, in.Width, in.Height,
-		startStr, endStr, StatusPending, now, now)
+		startStr, endStr, StatusPending, intBool(aiEnabled), now, now)
 	if err != nil {
 		return Task{}, err
 	}
@@ -120,7 +125,7 @@ func (s *Service) Get(id int64) (Task, error) {
 
 // List 返回任务列表（按创建时间倒序）。
 func (s *Service) List() ([]Task, error) {
-	rows, err := s.db.Query(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height, start_at, end_at, status, error_message, actual_started_at, created_at, updated_at
+	rows, err := s.db.Query(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height, start_at, end_at, status, error_message, actual_started_at, created_at, updated_at, ai_enabled
 		FROM timelapse_tasks ORDER BY id DESC`)
 	if err != nil {
 		return nil, err
@@ -364,7 +369,7 @@ func (s *Service) setStatus(id int64, status, errMsg string) error {
 }
 
 func (s *Service) getTaskRow(id int64) (Task, error) {
-	row := s.db.QueryRow(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height, start_at, end_at, status, error_message, actual_started_at, created_at, updated_at
+	row := s.db.QueryRow(`SELECT id, name, camera_id, interval_seconds, output_fps, width, height, start_at, end_at, status, error_message, actual_started_at, created_at, updated_at, ai_enabled
 		FROM timelapse_tasks WHERE id=?`, id)
 	var t Task
 	err := scanTask(row, &t)
@@ -377,10 +382,12 @@ func (s *Service) getTaskRow(id int64) (Task, error) {
 func scanTask(r interface{ Scan(...any) error }, t *Task) error {
 	var startAt, createdAt, updatedAt string
 	var endAt, actualStartedAt sql.NullString
+	var aiEnabled int
 	if err := r.Scan(&t.ID, &t.Name, &t.CameraID, &t.IntervalSeconds, &t.OutputFPS, &t.Width, &t.Height,
-		&startAt, &endAt, &t.Status, &t.ErrorMessage, &actualStartedAt, &createdAt, &updatedAt); err != nil {
+		&startAt, &endAt, &t.Status, &t.ErrorMessage, &actualStartedAt, &createdAt, &updatedAt, &aiEnabled); err != nil {
 		return err
 	}
+	t.AIEnabled = aiEnabled == 1
 	t.StartAt = database.ParseTime(startAt)
 	if endAt.Valid && endAt.String != "" {
 		v := database.ParseTime(endAt.String)
@@ -469,4 +476,28 @@ func parseTime(s string) (time.Time, error) {
 		}
 	}
 	return time.Time{}, fmt.Errorf("cannot parse %q", s)
+}
+
+// intBool 把 bool 转成 SQLite 的 0/1。
+func intBool(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// SetAIEnabled 设置任务是否开启 AI 打印检测。
+func (s *Service) SetAIEnabled(id int64, enabled bool) error {
+	_, err := s.db.Exec(`UPDATE timelapse_tasks SET ai_enabled=?, updated_at=? WHERE id=?`,
+		intBool(enabled), database.NowUTC(), id)
+	return err
+}
+
+// TaskAIEnabled 返回任务当前是否开启 AI 打印检测。
+func (s *Service) TaskAIEnabled(id int64) (bool, error) {
+	var v int
+	if err := s.db.QueryRow(`SELECT ai_enabled FROM timelapse_tasks WHERE id=?`, id).Scan(&v); err != nil {
+		return false, err
+	}
+	return v == 1, nil
 }

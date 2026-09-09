@@ -70,6 +70,9 @@ vision:
   detail: ""
 
   analyzeFrames: 5
+  maxChecksPerTask: 50
+  maxImageWidth: 0
+  aiEnabledByDefault: false
   minConfidence: 0.8
   failureStreak: 3
   cooldownSeconds: 300

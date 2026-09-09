@@ -68,14 +68,19 @@ func (s *Server) quickSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 逐层截图成功 → 后台分析最近 N 张（vision.enabled=false 时立即返回，无副作用）
+	// 逐层截图成功 → 后台分析最近 N 张。仅当该任务已手动开启 AI 检测时才分析
+	// （默认关：vision.aiEnabledByDefault=false，需在「AI 监控」页对当前打印任务开启）
 	if res.Captured && s.pc != nil {
 		taskID := res.TaskID
-		go func() {
-			if err := s.pc.CheckRecent(context.Background(), taskID); err != nil {
-				log.Printf("[printcheck] analyze task %d failed: %v", taskID, err)
-			}
-		}()
+		if enabled, aerr := s.tl.TaskAIEnabled(taskID); aerr == nil && enabled {
+			go func() {
+				if err := s.pc.CheckRecent(context.Background(), taskID); err != nil {
+					log.Printf("[printcheck] analyze task %d failed: %v", taskID, err)
+				}
+			}()
+		} else if aerr != nil {
+			log.Printf("[quick] task %d ai_enabled query failed: %v", taskID, aerr)
+		}
 	}
 
 	msg := "已截图"
@@ -195,4 +200,52 @@ func (s *Server) listAllChecks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, checks)
+}
+
+// quickTaskInfo 返回当前快捷任务信息（含 AI 检测开关状态）。
+func (s *Server) quickTaskInfo(w http.ResponseWriter, r *http.Request) {
+	id := s.tl.ActiveQuickTaskID()
+	if id == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"taskId": 0, "aiEnabled": false})
+		return
+	}
+	aiEnabled, err := s.tl.TaskAIEnabled(id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	t, err := s.tl.Get(id)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"taskId": id, "aiEnabled": aiEnabled, "name": t.Name, "status": t.Status,
+		"message": "任务 AI 检测：默认关闭，需手动开启",
+	})
+}
+
+// quickSetAI 设置当前快捷任务是否开启 AI 检测。
+func (s *Server) quickSetAI(w http.ResponseWriter, r *http.Request) {
+	id := s.tl.ActiveQuickTaskID()
+	if id == 0 {
+		writeErr(w, http.StatusBadRequest, "没有正在录制的快捷任务")
+		return
+	}
+	var in struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := readJSON(w, r, &in); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if in.Enabled == nil {
+		writeErr(w, http.StatusBadRequest, "enabled 必填")
+		return
+	}
+	if err := s.tl.SetAIEnabled(id, *in.Enabled); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"taskId": id, "aiEnabled": *in.Enabled})
 }

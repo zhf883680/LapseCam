@@ -69,6 +69,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/quick/layer", s.quickLayer)       // 记录层变化（captureMode=timestamp）
 
 	// AI 打印健康分析（逐层截图后自动分析最近 N 张）
+	mux.HandleFunc("GET /api/quick/task", s.quickTaskInfo)                // 当前快捷任务 + AI 开关状态
+	mux.HandleFunc("POST /api/quick/task/ai", s.quickSetAI)               // 开启/关闭当前任务 AI 检测
 	mux.HandleFunc("GET /api/quick/check", s.quickCheck)                  // 当前打印任务最近一次分析
 	mux.HandleFunc("GET /api/quick/checks", s.quickChecks)                // 分析历史（?taskId=&limit=）
 	mux.HandleFunc("GET /api/quick/checks/{id}/image", s.quickCheckImage) // 告警现场图

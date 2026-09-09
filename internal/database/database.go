@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS timelapse_tasks (
     status           TEXT    NOT NULL DEFAULT 'pending',
     error_message    TEXT    NOT NULL DEFAULT '',
     actual_started_at TEXT,
+    ai_enabled       INTEGER NOT NULL DEFAULT 0,
     created_at       TEXT    NOT NULL,
     updated_at       TEXT    NOT NULL
 );
@@ -106,7 +107,32 @@ CREATE INDEX IF NOT EXISTS idx_vision_checks_task ON vision_checks(task_id, id);
 	if _, err := db.Exec(schema); err != nil {
 		return fmt.Errorf("migrate: %w", err)
 	}
+	// 兼容旧库：为 timelapse_tasks 补 ai_enabled 列（默认 0 = 不开启）
+	if !columnExists(db, "timelapse_tasks", "ai_enabled") {
+		if _, err := db.Exec(`ALTER TABLE timelapse_tasks ADD COLUMN ai_enabled INTEGER NOT NULL DEFAULT 0`); err != nil {
+			return fmt.Errorf("migrate add ai_enabled: %w", err)
+		}
+	}
 	return nil
+}
+
+// columnExists 判断某表是否已有某列（SQLite PRAGMA table_info）。
+func columnExists(db *sql.DB, table, col string) bool {
+	rows, err := db.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err == nil && name == col {
+			return true
+		}
+	}
+	return false
 }
 
 // NowUTC 返回统一用于落库的时间（RFC3339 UTC 字符串）。
