@@ -55,7 +55,7 @@ cleanup:
 # ============================================================
 # AI 打印健康分析（Vision）
 # 配合逐层截图：每次 POST /api/quick/snapshot 截完一层图后，
-# 自动把该打印任务最近 analyzeFrames 张帧一起发给 DeepSeek 视觉模型判断，
+# 自动把该打印任务最近 analyzeFrames 张帧一起发给千问视觉模型判断，
 # 连续 failureStreak 次判异常才发 Webhook（防单次误报）。
 # ============================================================
 
@@ -63,7 +63,7 @@ vision:
   enabled: false                # 是否启用 AI 分析
   provider: "qwen"               # 阿里云百炼千问（OpenAI 兼容）；换 OpenAI/DeepSeek 改 baseUrl/model 即可
   baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1"
-  apiKey: ""                    # 推荐用环境变量 VISION_API_KEY，避免密钥进配置文件
+  apiKey: ""                    # 推荐用环境变量 DASHSCOPE_API_KEY 或 VISION_API_KEY，避免明文
   model: "qwen3-vl-flash"         # 千问视觉 flash 档（省 token，支持上下文缓存）
   timeout: 180s                  # 单次分析超时
   detail: ""                    # 图片细节：low/high/original/auto，空=不传（等价 original）
@@ -98,4 +98,4 @@ vision:
     channelName: ""            # 多渠道场景指定渠道名（可空）
     uploadFolder: "lapsecam"   # 上传目录（相对路径，可空）
     returnFormat: "full"       # default（/file/id）| full（完整链接）
-    timeout: 30s               # 上传超时   # 自建 Bark 服务可改
+    timeout: 30s               # 上传超时
